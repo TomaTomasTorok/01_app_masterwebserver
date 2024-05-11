@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:masterwebserver/widgets/widget_deviceList.dart';
 import 'package:masterwebserver/widgets/widget_itemList.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -94,9 +95,27 @@ class _ProductListState extends State<ProductList> {
     }
   }
 
-  List<List<int>> _buildData(List<ProductItem> items) {
+  Future<List<List<int>>> _buildData(List<ProductItem> items) async {
+    final prefs = await SharedPreferences.getInstance();
+    String? deviceListData = prefs.getString('devices');
+    List<int> deviceList = [];
+
+    if (deviceListData != null) {
+      try {
+        // Dekódovanie JSON reťazca na zoznam čísel
+        List<dynamic> decodedList = json.decode(deviceListData);
+        deviceList = decodedList.map((item) => int.parse(item.toString())).toList();
+      } catch (e) {
+        print("Chyba pri dekódovaní: $e");
+      }
+    }
+
+    print("Loaded devices: $deviceList");  // Vypíše načítané zariadenia pre kontrolu
+
+
+
     List<List<int>> data = [
-      [items.length], // Počet položiek
+      deviceList , // Počet položiek
     ];
 
     for (ProductItem item in items) {
@@ -111,6 +130,17 @@ class _ProductListState extends State<ProductList> {
     return Scaffold(
       appBar: AppBar(
         title: Text("Product List"),
+        actions: <Widget>[
+          IconButton(
+            icon: Icon(Icons.device_hub),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => DeviceList()),
+              );
+            },
+          ),
+        ],
       ),
       body: ListView.builder(
         itemCount: _products.length,
@@ -136,8 +166,8 @@ class _ProductListState extends State<ProductList> {
             child: ListTile(
               title: Text(product['name']),
               trailing: TextButton(
-                onPressed: () {
-                  List<List<int>> data = _buildData(items);
+                onPressed: () async {
+                  List<List<int>> data = await _buildData(items);
                   _externalDevice(data);
                 },
                 child: Text("Call"),
