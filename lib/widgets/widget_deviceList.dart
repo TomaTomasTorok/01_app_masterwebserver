@@ -45,6 +45,7 @@ class _DeviceListState extends State<DeviceList> {
         _saveDevices();
       }
       _controller.clear();
+      FocusScope.of(context).requestFocus(_focusNode);
     }
   }
 
@@ -93,11 +94,11 @@ class _DeviceListState extends State<DeviceList> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addDevice,
-        child: Icon(Icons.add),
-        tooltip: "Add Device",
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: _addDevice,
+      //   child: Icon(Icons.add),
+      //   tooltip: "Add Device",
+      // ),
     );
   }
 
