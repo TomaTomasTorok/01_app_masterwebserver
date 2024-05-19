@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:masterwebserver/widgets/widget_itemList.dart';
 import 'package:masterwebserver/widgets/widget_productList.dart';
+import 'package:masterwebserver/widgets/widget_workPlaceList.dart';
 void main() {
   runApp(const MyApp());
 }
@@ -22,7 +23,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
    //   home: const MyHomePage(title: 'Flutter Demo Home Page'),
-      home:  ProductList(      ),
+      home:  WorkplaceList(      ),
     );
   }
 }
