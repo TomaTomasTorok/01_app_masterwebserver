@@ -7,8 +7,7 @@ import 'dart:convert';
 
 import '../model/productItem.dart';
 import '../model/wokrplace.dart';
-//
-
+import '../model/product.dart'; // Import Product class
 
 class ProductList extends StatefulWidget {
   final Workplace workplace;
@@ -22,8 +21,8 @@ class ProductList extends StatefulWidget {
 class _ProductListState extends State<ProductList> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  List<Map<String, dynamic>> _products = [];
-  List<Map<String, dynamic>> _filteredProducts = [];
+  List<Product> _products = [];
+  List<Product> _filteredProducts = [];
 
   @override
   void initState() {
@@ -33,30 +32,37 @@ class _ProductListState extends State<ProductList> {
       FocusScope.of(context).requestFocus(_focusNode);
     });
   }
-  void _openProductForm(int index) {
-    final product = _products[index];
-    final List<ProductItem> items = (product['items'] as List)
-        .map((item) => ProductItem.fromMap(item))
-        .toList();
+
+  void _openProductForm(String productId) {
+    final product = _products.firstWhere((product) => product.name == productId);
+    final List<ProductItem> items = product.items;
 
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => ProductForm(
-          editIndex: index,
-          initialName: product['name'],
+          editIndex: _products.indexOf(product),
+          initialName: product.name,
           initialItems: items,
+          workplace: product.workplace, // Pass the workplace to the form
         ),
       ),
     ).then((_) => _loadData());
   }
+
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
     List<String>? allProducts = prefs.getStringList('allProducts');
 
     if (allProducts != null) {
-      _products = allProducts.map((item) => jsonDecode(item) as Map<String, dynamic>).toList();
-      _filteredProducts = _products;
+      _products = allProducts.map((item) => Product.fromMap(jsonDecode(item))).toList();
+
+      // Filter products by workplace if available
+      _filteredProducts = widget.workplace != null
+          ? _products.where((product) {
+        return product.workplace.toLowerCase().contains(widget.workplace.name.toLowerCase());
+      }).toList()
+          : _products;
     }
 
     setState(() {});
@@ -64,45 +70,75 @@ class _ProductListState extends State<ProductList> {
 
   void _filterProducts(String query) {
     if (query.isEmpty) {
-      _filteredProducts = _products;
+      _filteredProducts = widget.workplace != null
+          ? _products.where((product) {
+        return product.workplace.toLowerCase().contains(widget.workplace.name.toLowerCase());
+      }).toList()
+          : _products;
     } else {
       _filteredProducts = _products.where((product) {
-        return product['name'].toLowerCase().contains(query.toLowerCase());
+        return product.name.toLowerCase().contains(query.toLowerCase()) &&
+            (widget.workplace != null ? product.workplace.toLowerCase().contains(widget.workplace.name.toLowerCase()) : true);
       }).toList();
     }
     setState(() {});
   }
 
-  Future<void> _handleProduct(int index) async {
-    final product = _filteredProducts[index];
-    final List<ProductItem> items = (product['items'] as List)
-        .map((item) => ProductItem.fromMap(item))
-        .toList();
+  Future<void> _handleProduct(String productId) async {
+    final product = _filteredProducts.firstWhere((product) => product.name == productId);
+    final List<ProductItem> items = product.items;
+
+    // Zobrazenie načítacieho kolieska
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text("Processing..."),
+              ],
+            ),
+          ),
+        );
+      },
+    );
 
     List<List<int>> data = await _buildData(items);
     await _externalDevice(data);
 
+    // Zavretie načítacieho kolieska
+    Navigator.of(context).pop();
+
     setState(() {
       _controller.clear();
-      _filteredProducts = _products;
+      _filterProducts('');  // Opätovne použijeme filter po spracovaní dát
     });
 
-    // Vrátenie fokusu na TextField po krátkom oneskorení
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FocusScope.of(context).requestFocus(_focusNode);
     });
   }
 
-  Future<void> _deleteProduct(int index) async {
+  Future<void> _deleteProduct(String productId) async {
     final prefs = await SharedPreferences.getInstance();
     List<String>? allProducts = prefs.getStringList('allProducts');
 
-    if (allProducts != null && index >= 0 && index < allProducts.length) {
-      allProducts.removeAt(index);
+    if (allProducts != null) {
+      _products.removeWhere((product) => product.name == productId);
+      allProducts.removeWhere((item) => jsonDecode(item)['name'] == productId);
       await prefs.setStringList('allProducts', allProducts);
       setState(() {
-        _products.removeAt(index);
-        _filteredProducts.removeAt(index);
+        _filteredProducts = _products.where((product) {
+          return widget.workplace != null
+              ? product.workplace.toLowerCase().contains(widget.workplace.name.toLowerCase())
+              : true;
+        }).toList();
       });
     }
   }
@@ -115,6 +151,7 @@ class _ProductListState extends State<ProductList> {
           editIndex: null,
           initialName: '',
           initialItems: [],
+          workplace: widget.workplace.name, // Pass the workplace to the form
         ),
       ),
     ).then((_) => _loadData());
@@ -125,7 +162,8 @@ class _ProductListState extends State<ProductList> {
       print(item);
     }
     try {
-      const url = 'http://192.168.0.184/data';
+      final url = 'http://${widget.workplace.ipAddress}/data';
+    //  const url = 'http://192.168.0.184/data';
       final response = await http.post(
         Uri.parse(url),
         headers: {"Content-Type": "application/json"},
@@ -141,6 +179,7 @@ class _ProductListState extends State<ProductList> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to connect to the device: $e")));
     }
   }
+
   Future<List<List<int>>> _buildData(List<ProductItem> items) async {
     final prefs = await SharedPreferences.getInstance();
     String? deviceListData = prefs.getString('devices');
@@ -193,21 +232,20 @@ class _ProductListState extends State<ProductList> {
               focusNode: _focusNode,
               controller: _controller,
               decoration: InputDecoration(
-                labelText: "Enter product ID",
+                labelText: "Search: Enter product ID",
                 suffixIcon: IconButton(
                   icon: Icon(Icons.send),
                   onPressed: () {
                     if (_filteredProducts.isNotEmpty) {
-                      _handleProduct(0);
+                      _handleProduct(_filteredProducts[0].name);
                     }
                   },
                 ),
               ),
-             // keyboardType: TextInputType.number,
               onChanged: (value) => _filterProducts(value),
               onSubmitted: (value) {
                 if (_filteredProducts.isNotEmpty) {
-                  _handleProduct(0);
+                  _handleProduct(_filteredProducts[0].name);
                 }
               },
             ),
@@ -217,14 +255,12 @@ class _ProductListState extends State<ProductList> {
               itemCount: _filteredProducts.length,
               itemBuilder: (context, index) {
                 final product = _filteredProducts[index];
-                final List<ProductItem> items = (product['items'] as List)
-                    .map((item) => ProductItem.fromMap(item))
-                    .toList();
+                final List<ProductItem> items = product.items;
 
                 return Dismissible(
-                  key: Key(product['name']),
+                  key: Key(product.name),
                   direction: DismissDirection.endToStart,
-                  onDismissed: (direction) => _deleteProduct(index),
+                  onDismissed: (direction) => _deleteProduct(product.name),
                   background: Container(
                     color: Colors.red,
                     alignment: Alignment.centerRight,
@@ -235,7 +271,7 @@ class _ProductListState extends State<ProductList> {
                     ),
                   ),
                   child: ListTile(
-                    title: Text(product['name']),
+                    title: Text(product.name),
                     trailing: TextButton(
                       onPressed: () async {
                         List<List<int>> data = await _buildData(items);
@@ -243,7 +279,7 @@ class _ProductListState extends State<ProductList> {
                       },
                       child: Text("Call"),
                     ),
-                    onTap: () => _openProductForm(index),
+                    onTap: () => _openProductForm(product.name),
                   ),
                 );
               },

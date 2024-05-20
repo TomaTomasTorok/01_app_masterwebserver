@@ -3,13 +3,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 import '../model/productItem.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
+import '../model/productItem.dart';
+import '../model/product.dart'; // Import Product class
 
 class ProductForm extends StatefulWidget {
   final int? editIndex;
   final String initialName;
+  final String? workplace;
   final List<ProductItem> initialItems;
 
-  ProductForm({this.editIndex, required this.initialName, required this.initialItems});
+  ProductForm({this.editIndex, required this.initialName, required this.initialItems, this.workplace});
 
   @override
   _ProductFormState createState() => _ProductFormState();
@@ -28,7 +35,6 @@ class _ProductFormState extends State<ProductForm> {
   }
 
   void _showAddOrEditItemDialog({int? index}) {
-    // V prípade úpravy existujúcej položky načítame jej hodnoty, inak prázdne alebo prednastavené hodnoty
     final TextEditingController poradieController = TextEditingController(
       text: index != null ? _productItems[index].poradie.toString() : (_productItems.length + 1).toString(),
     );
@@ -98,10 +104,8 @@ class _ProductFormState extends State<ProductForm> {
 
     setState(() {
       if (index == null) {
-        // Ak index nie je definovaný, pridáme novú položku
         _productItems.add(ProductItem(poradie: poradie, status: status, idPL: idPL));
       } else {
-        // Aktualizujeme existujúcu položku
         _productItems[index] = ProductItem(poradie: poradie, status: status, idPL: idPL);
       }
     });
@@ -111,14 +115,16 @@ class _ProductFormState extends State<ProductForm> {
 
   Future<void> _saveData() async {
     final prefs = await SharedPreferences.getInstance();
-    final String newProductJson = jsonEncode({
-      'name': _productNameController.text,
-      'items': _productItems.map((item) => item.toMap()).toList(),
-    });
+    final Product newProduct = Product(
+      name: _productNameController.text,
+      pocetPL: _productItems.length,
+      workplace: widget.workplace??"", // Update with appropriate value
+      items: _productItems,
+    );
+    final String newProductJson = jsonEncode(newProduct.toMap());
 
     List<String> allProducts = prefs.getStringList('allProducts') ?? [];
 
-    // If editing an existing product, replace it in the list
     if (widget.editIndex != null) {
       allProducts[widget.editIndex!] = newProductJson;
     } else {
@@ -182,3 +188,4 @@ class _ProductFormState extends State<ProductForm> {
     );
   }
 }
+
