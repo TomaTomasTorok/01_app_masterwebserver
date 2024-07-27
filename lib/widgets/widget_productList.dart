@@ -7,7 +7,9 @@ import 'dart:convert';
 
 import '../model/productItem.dart';
 import '../model/wokrplace.dart';
-import '../model/product.dart'; // Import Product class
+import '../model/product.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'dart:async';
 
 class ProductList extends StatefulWidget {
   final Workplace workplace;
@@ -23,14 +25,42 @@ class _ProductListState extends State<ProductList> {
   final FocusNode _focusNode = FocusNode();
   List<Product> _products = [];
   List<Product> _filteredProducts = [];
+  late WebSocketChannel channel;
+  bool isWebSocketConnected = false;
+  StreamSubscription? streamSubscription;
 
   @override
   void initState() {
     super.initState();
+    initWebSocket();
     _loadData();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       FocusScope.of(context).requestFocus(_focusNode);
     });
+  }
+
+  void initWebSocket() {
+    channel = WebSocketChannel.connect(
+      Uri.parse('ws://${widget.workplace.ipAddress}:81'),
+    );
+    isWebSocketConnected = true;
+
+    streamSubscription = channel.stream.listen(
+          (message) {
+        print('Received message: $message');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Prijaté cez WebSocket: $message")),
+        );
+      },
+      onDone: () {
+        print('WebSocket connection closed');
+        isWebSocketConnected = false;
+      },
+      onError: (error) {
+        print('WebSocket error: $error');
+        isWebSocketConnected = false;
+      },
+    );
   }
 
   void _openProductForm(String productId) {
@@ -44,7 +74,7 @@ class _ProductListState extends State<ProductList> {
           editIndex: _products.indexOf(product),
           initialName: product.name,
           initialItems: items,
-          workplace: product.workplace, // Pass the workplace to the form
+          workplace: product.workplace,
         ),
       ),
     ).then((_) => _loadData());
@@ -57,7 +87,6 @@ class _ProductListState extends State<ProductList> {
     if (allProducts != null) {
       _products = allProducts.map((item) => Product.fromMap(jsonDecode(item))).toList();
 
-      // Filter products by workplace if available
       _filteredProducts = widget.workplace != null
           ? _products.where((product) {
         return product.workplace.toLowerCase().contains(widget.workplace.name.toLowerCase());
@@ -88,7 +117,6 @@ class _ProductListState extends State<ProductList> {
     final product = _filteredProducts.firstWhere((product) => product.name == productId);
     final List<ProductItem> items = product.items;
 
-    // Zobrazenie načítacieho kolieska
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -112,12 +140,11 @@ class _ProductListState extends State<ProductList> {
     List<List<int>> data = await _buildData(items);
     await _externalDevice(data);
 
-    // Zavretie načítacieho kolieska
     Navigator.of(context).pop();
 
     setState(() {
       _controller.clear();
-      _filterProducts('');  // Opätovne použijeme filter po spracovaní dát
+      _filterProducts('');
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -151,32 +178,28 @@ class _ProductListState extends State<ProductList> {
           editIndex: null,
           initialName: '',
           initialItems: [],
-          workplace: widget.workplace.name, // Pass the workplace to the form
+          workplace: widget.workplace.name,
         ),
       ),
     ).then((_) => _loadData());
   }
 
   Future<void> _externalDevice(List<List<int>> data) async {
-    for (List<int> item in data) {
-      print(item);
+    if (!isWebSocketConnected) {
+      initWebSocket();
     }
+
     try {
-      final url = 'http://${widget.workplace.ipAddress}/data';
-    //  const url = 'http://192.168.0.184/data';
-      final response = await http.post(
-        Uri.parse(url),
-        headers: {"Content-Type": "application/json"},
-        body: json.encode({"data": data}),
+      channel.sink.add(json.encode({"data": data}));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Dáta odoslané. Čakám na odpoveď...")),
       );
 
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Request successful!")));
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Request failed: ${response.statusCode}")));
-      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Failed to connect to the device: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Chyba pri odosielaní dát: $e")),
+      );
     }
   }
 
@@ -297,6 +320,8 @@ class _ProductListState extends State<ProductList> {
 
   @override
   void dispose() {
+    streamSubscription?.cancel();
+    channel.sink.close();
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
