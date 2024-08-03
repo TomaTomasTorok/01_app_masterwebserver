@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:masterwebserver/widgets/widget_productList.dart';
-import 'package:masterwebserver/widgets/widget_workPlace_form.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
-
-import '../model/wokrplace.dart';
-
-
+import '../SQLite/database_helper.dart';
+import 'MasterIPList.dart';
+import 'widget_productList.dart';
 
 class WorkplaceList extends StatefulWidget {
   @override
@@ -14,7 +9,8 @@ class WorkplaceList extends StatefulWidget {
 }
 
 class _WorkplaceListState extends State<WorkplaceList> {
-  List<Workplace> workplaces = [];
+  final DatabaseHelper _databaseHelper = DatabaseHelper();
+  List<Map<String, dynamic>> workplaces = [];
 
   @override
   void initState() {
@@ -23,35 +19,61 @@ class _WorkplaceListState extends State<WorkplaceList> {
   }
 
   Future<void> _loadWorkplaces() async {
-    final prefs = await SharedPreferences.getInstance();
-    String? workplacesData = prefs.getString('workplaces');
-    if (workplacesData != null) {
-      List<dynamic> decoded = json.decode(workplacesData);
-      workplaces = decoded.map((workplace) => Workplace.fromMap(workplace)).toList();
-    }
-    setState(() {});
+    final results = await _databaseHelper.getWorkplaces();
+    setState(() {
+      workplaces = results;
+    });
   }
 
-  void _addOrUpdateWorkplace(Workplace workplace, [int? index]) {
-    if (index == null) {
-      // Adding new workplace
-      workplaces.add(workplace);
-    } else {
-      // Updating existing workplace
-      workplaces[index] = workplace;
-    }
-    _saveWorkplaces();
-  }
+  void _showAddWorkplaceDialog() {
+    final TextEditingController _workplaceController = TextEditingController();
+    final TextEditingController _masterIPController = TextEditingController();
 
-  Future<void> _saveWorkplaces() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('workplaces', json.encode(workplaces.map((workplace) => workplace.toMap()).toList()));
-    setState(() {});
-  }
-
-  void _deleteWorkplace(int index) {
-    workplaces.removeAt(index);
-    _saveWorkplaces();
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Add Workplace'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _workplaceController,
+                decoration: InputDecoration(hintText: "Enter workplace name"),
+              ),
+              SizedBox(height: 10),
+              TextField(
+                controller: _masterIPController,
+                decoration: InputDecoration(hintText: "Enter Master IP"),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Add'),
+              onPressed: () async {
+                if (_workplaceController.text.isNotEmpty && _masterIPController.text.isNotEmpty) {
+                  await _databaseHelper.insertWorkplace(_workplaceController.text);
+                  await _databaseHelper.insertMasterIP(_workplaceController.text, _masterIPController.text);
+                  Navigator.of(context).pop();
+                  _loadWorkplaces();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Please enter both Workplace name and Master IP')),
+                  );
+                }
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -64,32 +86,64 @@ class _WorkplaceListState extends State<WorkplaceList> {
         itemCount: workplaces.length,
         itemBuilder: (context, index) {
           final workplace = workplaces[index];
-          return Card(
-            child: ListTile(
-              title: Text(workplace.name),
-              subtitle: Text("IP Address: ${workplace.ipAddress}"),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProductList(workplace: workplace)),
-                );
-              },
-              trailing: IconButton(
-                icon: Icon(Icons.delete, color: Colors.red),
-                onPressed: () => _deleteWorkplace(index),
-              ),
+          return ListTile(
+            title: Text(workplace['workplace_id']),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton(
+                  child: Text('Master IP List'),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MasterIPList(
+                          workplaceId: workplace['workplace_id'],
+                          workplaceName: workplace['workplace_id'],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                SizedBox(width: 8),
+                ElevatedButton(
+                  child: Text('Learning'),
+                  onPressed: () {
+                    // Implementujte funkcionalitu učenia
+                  },
+                ),
+                SizedBox(width: 8),
+                ElevatedButton(
+                  child: Text('Test'),
+                  onPressed: () {
+                    // Implementujte funkcionalitu testu
+                  },
+                ),
+                SizedBox(width: 8),
+                ElevatedButton(
+                  child: Text('Change'),
+                  onPressed: () {
+                    // Implementujte funkcionalitu zmeny
+                  },
+                ),
+              ],
             ),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ProductList(
+                    workplaceId: workplace['workplace_id'],
+                    workplaceName: workplace['workplace_id'],
+                  ),
+                ),
+              );
+            },
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // This should open a form to add or edit a workplace
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => WorkplaceForm(onSubmit: _addOrUpdateWorkplace)),
-          );
-        },
+        onPressed: _showAddWorkplaceDialog,
         child: Icon(Icons.add),
         tooltip: "Add Workplace",
       ),
