@@ -4,7 +4,7 @@ import 'dart:io';
 
 class DatabaseHelper {
   static Database? _database;
-
+  static const String DEFAULT_PRODUCT = 'DEFAULT_PRODUCT';
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDatabase();
@@ -67,41 +67,60 @@ class DatabaseHelper {
       'sensor_value': 0.0
     });
   }
-
   Future<List<Map<String, dynamic>>> getProductsForWorkplace(String workplaceId) async {
     final db = await database;
     return await db.query(
       'product_data',
       distinct: true,
       columns: ['product'],
-      where: 'workplace_id = ?',
-      whereArgs: [workplaceId],
+      where: 'workplace_id = ? AND product != ?',
+      whereArgs: [workplaceId, DEFAULT_PRODUCT],
     );
   }
 
+
   Future<int> insertProduct(String name, String workplaceId) async {
     final db = await database;
-    var workplaceData = await db.query(
+    return await db.transaction((txn) async {
+      // Vloženie nového produktu
+      final id = await txn.insert('product_data', {
+        'workplace_id': workplaceId,
+        'product': name,
+        'master_ip': await _getMasterIPForWorkplace(workplaceId, txn),
+        'slave': 0,
+        'sensor': 0,
+        'sensor_type': 'Default Type',
+        'sensor_value': 0.0,
+        'sequence': 1
+      });
+
+      // Kontrola a odstránenie default produktu
+      final defaultProducts = await txn.query(
+        'product_data',
+        where: 'workplace_id = ? AND product = ?',
+        whereArgs: [workplaceId, DEFAULT_PRODUCT],
+      );
+
+      if (defaultProducts.isNotEmpty) {
+        await txn.delete(
+          'product_data',
+          where: 'workplace_id = ? AND product = ?',
+          whereArgs: [workplaceId, DEFAULT_PRODUCT],
+        );
+      }
+
+      return id;
+    });
+  }
+  Future<String> _getMasterIPForWorkplace(String workplaceId, Transaction txn) async {
+    final result = await txn.query(
       'product_data',
       columns: ['master_ip'],
       where: 'workplace_id = ?',
       whereArgs: [workplaceId],
       limit: 1,
     );
-    if (workplaceData.isEmpty) {
-      throw Exception('Workplace not found');
-    }
-    String masterIP = workplaceData.first['master_ip'] as String;
-    return await db.insert('product_data', {
-      'workplace_id': workplaceId,
-      'product': name,
-      'master_ip': masterIP,
-      'slave': 0,
-      'sensor': 0,
-      'sensor_type': 'Default Type',
-      'sensor_value': 0.0,
-      'sequence': 1
-    });
+    return result.isNotEmpty ? result.first['master_ip'] as String : '';
   }
 
   Future<List<Map<String, dynamic>>> getProductDataWithMasterIP(String productName, String workplaceId) async {
@@ -162,7 +181,7 @@ class DatabaseHelper {
       return await db.insert('product_data', {
         'workplace_id': workplaceId,
         'master_ip': masterIP,
-        'product': 'Default Product',
+        'product': DEFAULT_PRODUCT,
         'slave': 0,
         'sensor': 0,
         'sequence': 0,
