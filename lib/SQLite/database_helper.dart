@@ -25,39 +25,23 @@ class DatabaseHelper {
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // Nebudeme vytvárať novú tabuľku, keďže už existuje
+    // Táto metóda sa volá len ak databáza ešte neexistuje
+    await db.execute('''
+      CREATE TABLE product_data(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        workplace_id TEXT NOT NULL,
+        product TEXT NOT NULL,
+        master_ip TEXT NOT NULL,
+        slave INTEGER NOT NULL,
+        sensor INTEGER NOT NULL,
+        sensor_type TEXT,
+        sensor_value REAL,
+        sequence INTEGER NOT NULL
+      )
+    ''');
   }
 
-  Future<List<Map<String, dynamic>>> getWorkplaces() async {
-    final db = await database;
-    return await db.query('product_data', distinct: true, columns: ['workplace_id']);
-  }
 
-  Future<int> insertWorkplace(String name) async {
-    final db = await database;
-    return await db.insert('product_data', {
-      'workplace_id': name,
-      'product': 'Default Product',
-      'master_ip': 'Default IP',
-      'slave': 0,
-      'sensor': 0,
-      'sensor_type': 'Default Type',
-      'sensor_value': 0.0,
-      'sequence': 1
-    });
-  }
-  Future<int> insertWorkplaceWithMasterIP(String name, String masterIP) async {
-    final db = await database;
-    return await db.insert('product_data', {
-      'workplace_id': name,
-      'product': 'Default Product',
-      'master_ip': masterIP,
-      'slave': 0,
-      'sensor': 0,
-      'sequence': 0,
-      'sensor_value': 0.0,
-    });
-  }
 
 
   Future<List<Map<String, dynamic>>> getMasterIPsForWorkplace(String workplaceId) async {
@@ -76,7 +60,7 @@ class DatabaseHelper {
     return await db.insert('product_data', {
       'workplace_id': workplaceId,
       'master_ip': masterIP,
-      'product': 'Default Product',  // môžete zmeniť podľa potreby
+      'product': 'Default Product',
       'slave': 0,
       'sensor': 0,
       'sequence': 0,
@@ -97,10 +81,21 @@ class DatabaseHelper {
 
   Future<int> insertProduct(String name, String workplaceId) async {
     final db = await database;
+    var workplaceData = await db.query(
+      'product_data',
+      columns: ['master_ip'],
+      where: 'workplace_id = ?',
+      whereArgs: [workplaceId],
+      limit: 1,
+    );
+    if (workplaceData.isEmpty) {
+      throw Exception('Workplace not found');
+    }
+    String masterIP = workplaceData.first['master_ip'] as String;
     return await db.insert('product_data', {
       'workplace_id': workplaceId,
       'product': name,
-      'master_ip': 'Default IP',
+      'master_ip': masterIP,
       'slave': 0,
       'sensor': 0,
       'sensor_type': 'Default Type',
@@ -117,6 +112,7 @@ class DatabaseHelper {
       whereArgs: [productName, workplaceId],
     );
   }
+
   Future<int> insertProductData(Map<String, dynamic> data) async {
     final db = await database;
     return await db.insert('product_data', data);
@@ -132,4 +128,56 @@ class DatabaseHelper {
     );
   }
 
+  Future<int> deleteWorkplace(String workplaceId) async {
+    final db = await database;
+    return await db.delete(
+      'product_data',
+      where: 'workplace_id = ?',
+      whereArgs: [workplaceId],
+    );
+  }
+  Future<List<Map<String, dynamic>>> getWorkplaces() async {
+    final db = await database;
+    return await db.rawQuery('''
+      SELECT workplace_id, MAX(master_ip) as master_ip
+      FROM product_data
+      GROUP BY workplace_id
+    ''');
+  }
+
+  Future<bool> isWorkplaceUnique(String workplaceId) async {
+    final db = await database;
+    var result = await db.query(
+      'product_data',
+      where: 'workplace_id = ?',
+      whereArgs: [workplaceId],
+      limit: 1,
+    );
+    return result.isEmpty;
+  }
+
+  Future<int> insertWorkplaceWithMasterIP(String workplaceId, String masterIP) async {
+    if (await isWorkplaceUnique(workplaceId)) {
+      final db = await database;
+      return await db.insert('product_data', {
+        'workplace_id': workplaceId,
+        'master_ip': masterIP,
+        'product': 'Default Product',
+        'slave': 0,
+        'sensor': 0,
+        'sequence': 0,
+        'sensor_value': 0.0,
+      });
+    } else {
+      throw Exception('Workplace with this ID already exists');
+    }
+  }
+  Future<int> deleteProduct(String productName, String workplaceId) async {
+    final db = await database;
+    return await db.delete(
+      'product_data',
+      where: 'product = ? AND workplace_id = ?',
+      whereArgs: [productName, workplaceId],
+    );
+  }
 }

@@ -59,10 +59,21 @@ class _WorkplaceListState extends State<WorkplaceList> {
               child: Text('Add'),
               onPressed: () async {
                 if (_workplaceController.text.isNotEmpty && _masterIPController.text.isNotEmpty) {
-                  await _databaseHelper.insertWorkplace(_workplaceController.text);
-                  await _databaseHelper.insertMasterIP(_workplaceController.text, _masterIPController.text);
-                  Navigator.of(context).pop();
-                  _loadWorkplaces();
+                  try {
+                    await _databaseHelper.insertWorkplaceWithMasterIP(
+                        _workplaceController.text,
+                        _masterIPController.text
+                    );
+                    Navigator.of(context).pop();
+                    _loadWorkplaces();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Workplace added successfully')),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error: ${e.toString()}')),
+                    );
+                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Please enter both Workplace name and Master IP')),
@@ -88,6 +99,7 @@ class _WorkplaceListState extends State<WorkplaceList> {
           final workplace = workplaces[index];
           return ListTile(
             title: Text(workplace['workplace_id']),
+            subtitle: Text('Master IP: ${workplace['master_ip']}'),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

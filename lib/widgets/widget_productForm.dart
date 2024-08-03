@@ -40,31 +40,44 @@ class _ProductFormState extends State<ProductForm> {
     final TextEditingController slaveController = TextEditingController(text: item?['slave']?.toString() ?? '');
     final TextEditingController sequenceController = TextEditingController(text: item?['sequence']?.toString() ?? '');
     final TextEditingController sensorController = TextEditingController(text: item?['sensor']?.toString() ?? '');
+    final TextEditingController sensorTypeController = TextEditingController(text: item?['sensor_type']?.toString() ?? '');
+    final TextEditingController sensorValueController = TextEditingController(text: item?['sensor_value']?.toString() ?? '');
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text(item == null ? "Add Sensor" : "Edit Sensor"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: slaveController,
-                decoration: InputDecoration(labelText: "Slave"),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: sequenceController,
-                decoration: InputDecoration(labelText: "Sequence"),
-                keyboardType: TextInputType.number,
-              ),
-              TextField(
-                controller: sensorController,
-                decoration: InputDecoration(labelText: "Sensor"),
-                keyboardType: TextInputType.number,
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: slaveController,
+                  decoration: InputDecoration(labelText: "Slave"),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: sequenceController,
+                  decoration: InputDecoration(labelText: "Sequence"),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: sensorController,
+                  decoration: InputDecoration(labelText: "Sensor"),
+                  keyboardType: TextInputType.number,
+                ),
+                TextField(
+                  controller: sensorTypeController,
+                  decoration: InputDecoration(labelText: "Sensor Type"),
+                ),
+                TextField(
+                  controller: sensorValueController,
+                  decoration: InputDecoration(labelText: "Sensor Value"),
+                  keyboardType: TextInputType.number,
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -78,28 +91,25 @@ class _ProductFormState extends State<ProductForm> {
                 final newItem = {
                   'workplace_id': widget.workplace,
                   'product': widget.product['product'],
-                  'master_ip': widget.masterIp,
+                  'master_ip': item?['master_ip'] ?? widget.masterIp,  // Použijeme pôvodnú hodnotu alebo widget.masterIp pre nové záznamy
                   'slave': int.tryParse(slaveController.text) ?? 0,
                   'sequence': int.tryParse(sequenceController.text) ?? 0,
                   'sensor': int.tryParse(sensorController.text) ?? 0,
-                  'sensor_value': 0.0,
+                  'sensor_type': sensorTypeController.text,
+                  'sensor_value': double.tryParse(sensorValueController.text) ?? 0.0,
                 };
 
                 if (item == null) {
                   // Pridanie nového záznamu
                   final id = await _databaseHelper.insertProductData(newItem);
-                  newItem['id'] = id;
                   setState(() {
-                    _items.add(newItem);
+                    _items = [..._items, {...newItem, 'id': id}];
                   });
                 } else {
                   // Aktualizácia existujúceho záznamu
                   await _databaseHelper.updateProductData(item['id'], newItem);
                   setState(() {
-                    final index = _items.indexWhere((i) => i['id'] == item['id']);
-                    if (index != -1) {
-                      _items[index] = {...item, ...newItem};
-                    }
+                    _items = _items.map((i) => i['id'] == item['id'] ? {...newItem, 'id': item['id']} : i).toList();
                   });
                 }
 
@@ -111,9 +121,7 @@ class _ProductFormState extends State<ProductForm> {
         );
       },
     );
-  }
-
-  @override
+  }  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -127,7 +135,7 @@ class _ProductFormState extends State<ProductForm> {
           final item = _items[index];
           return ListTile(
             title: Text('Slave: ${item['slave']}, Sensor: ${item['sensor']}'),
-            subtitle: Text('Sequence: ${item['sequence']}'),
+            subtitle: Text('Sequence: ${item['sequence']}, Type: ${item['sensor_type']}, Value: ${item['sensor_value']}'),
             onTap: () => _showAddOrEditItemDialog(item: item),
           );
         },
