@@ -42,7 +42,16 @@ class DatabaseHelper {
   }
 
 
+  Future<int> getMaxSequenceForProduct(String workplaceId, String productName) async {
+    final db = await database;
+    final result = await db.rawQuery('''
+      SELECT MAX(sequence) as max_sequence
+      FROM product_data
+      WHERE workplace_id = ? AND product = ?
+    ''', [workplaceId, productName]);
 
+    return (result.first['max_sequence'] as int?) ?? 0;
+  }
 
   Future<List<Map<String, dynamic>>> getMasterIPsForWorkplace(String workplaceId) async {
     final db = await database;
@@ -60,7 +69,7 @@ class DatabaseHelper {
     return await db.insert('product_data', {
       'workplace_id': workplaceId,
       'master_ip': masterIP,
-      'product': 'Default Product',
+      'product': DEFAULT_PRODUCT,
       'slave': 0,
       'sensor': 0,
       'sequence': 0,

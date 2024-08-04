@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../model/wokrplace.dart';
+import '../../model/wokrplace.dart';
 
 
 class WorkplaceForm extends StatefulWidget {

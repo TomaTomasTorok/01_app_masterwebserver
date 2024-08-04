@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:masterwebserver/widgets/widget_productList.dart';
-import 'MasterIPList.dart';
+import '../MasterIPList.dart';
 
 class WorkplaceMenu extends StatelessWidget {
   final String workplaceId;

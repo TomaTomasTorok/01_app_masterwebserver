@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:masterwebserver/widgets/widget_productForm.dart';
+import 'package:flutter/foundation.dart';
 import '../SQLite/database_helper.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
-import 'dart:convert';
+import './processProductData.dart';
 
 class ProductList extends StatefulWidget {
   final String workplaceId;
@@ -35,43 +34,39 @@ class _ProductListState extends State<ProductList> {
   void _addProduct() async {
     if (_controller.text.isNotEmpty) {
       await _databaseHelper.insertProduct(_controller.text, widget.workplaceId);
-
       _controller.clear();
       _loadProducts();
     }
   }
 
-  Future<void> _handleCall(String productName) async {
-    final productData = await _databaseHelper.getProductDataWithMasterIP(productName, widget.workplaceId);
-    if (productData.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No data for this product')));
+  Future<void> handleCall(String productName) async {
+    print('Starting handleCall for product: $productName');
+    if (!mounted) {
+      print('Widget is not mounted. Exiting handleCall.');
       return;
     }
 
-    final masterIP = productData.first['master_ip'];
-    final data = productData.map((item) => [item['slave'], item['sequence'], item['sensor']]).toList();
-    data.sort((a, b) => (a[1] as int).compareTo(b[1] as int)); // Sort by sequence
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Center(child: CircularProgressIndicator());
+      },
+    );
 
     try {
-      final channel = WebSocketChannel.connect(Uri.parse('ws://$masterIP:81'));
-      channel.sink.add(json.encode({"data": data}));
+      await processProductData(productName, widget.workplaceId);
 
-      channel.stream.listen(
-            (message) {
-          print('Received message: $message');
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Received: $message')));
-        },
-        onDone: () {
-          print('WebSocket closed');
-        },
-        onError: (error) {
-          print('WebSocket error: $error');
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $error')));
-        },
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Call completed for $productName')));
     } catch (e) {
-      print('Error connecting to WebSocket: $e');
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Connection error: $e')));
+      print('Error in handleCall: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An error occurred: $e')));
+    } finally {
+      if (mounted) {
+        Navigator.of(context).pop(); // Zatvorí indikátor priebehu
+      }
     }
   }
 
@@ -119,7 +114,7 @@ class _ProductListState extends State<ProductList> {
                   title: Text('Product: ${product['product']}'),
                   trailing: ElevatedButton(
                     child: Text('Call'),
-                    onPressed: () => _handleCall(product['product']),
+                    onPressed: () => handleCall(product['product']),
                   ),
                   onTap: () => _openProductForm(product),
                 );
@@ -135,5 +130,28 @@ class _ProductListState extends State<ProductList> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+}
+
+// Predpokladáme, že ProductForm je definovaný v inom súbore
+// Ak nie, budete ho musieť implementovať alebo importovať
+class ProductForm extends StatelessWidget {
+  final String workplace;
+  final String masterIp;
+  final Map<String, dynamic> product;
+
+  ProductForm({required this.workplace, required this.masterIp, required this.product});
+
+  @override
+  Widget build(BuildContext context) {
+    // Implementujte ProductForm podľa vašich potrieb
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Product Form'),
+      ),
+      body: Center(
+        child: Text('Product Form for ${product['product']}'),
+      ),
+    );
   }
 }
