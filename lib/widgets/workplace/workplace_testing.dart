@@ -16,7 +16,7 @@ class TestingManager {
     if (!isTestingForWorkplace(workplaceId)) {
       await startTesting(context, workplaceId, databaseHelper);
     } else {
-      stopTesting(workplaceId);
+      await stopTesting(context, workplaceId);
     }
     testingState[workplaceId] = !isTestingForWorkplace(workplaceId);
     updateUI();
@@ -30,10 +30,12 @@ class TestingManager {
         return;
       }
 
-      final data = [
-        [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
-        [99,1,99]
-      ];
+      final data = {
+        "data": [
+          [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
+          [99,0,0]
+        ]
+      };
 
       activeChannels[workplaceId] = [];
 
@@ -48,7 +50,7 @@ class TestingManager {
           activeChannels[workplaceId]!.add(channel);
           await channel.ready;
 
-          channel.sink.add(json.encode({"data": data}));
+          channel.sink.add(json.encode(data));
 
           channel.stream.listen(
                 (message) {
@@ -72,10 +74,23 @@ class TestingManager {
     }
   }
 
-  void stopTesting(String workplaceId) {
+  Future<void> stopTesting(BuildContext context, String workplaceId) async {
     if (activeChannels.containsKey(workplaceId)) {
+      final stopData = {
+        "data": [
+          [1,2,3,4,5,6,7,8,9,10],
+          [0,0,0]
+        ]
+      };
+
       for (var channel in activeChannels[workplaceId]!) {
-        channel.sink.close();
+        try {
+          channel.sink.add(json.encode(stopData));
+          await Future.delayed(Duration(milliseconds: 100)); // Give some time for the message to be sent
+          await channel.sink.close();
+        } catch (e) {
+          print('Error sending stop signal or closing channel: $e');
+        }
       }
       activeChannels[workplaceId]!.clear();
     }

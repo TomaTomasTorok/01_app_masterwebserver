@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import '../SQLite/database_helper.dart';
 import './processProductData.dart';
+import './widget_productForm.dart'; // Uistite sa, že máte správny import pre ProductForm
 
 class ProductList extends StatefulWidget {
   final String workplaceId;
@@ -130,28 +131,5 @@ class _ProductListState extends State<ProductList> {
   void dispose() {
     _controller.dispose();
     super.dispose();
-  }
-}
-
-// Predpokladáme, že ProductForm je definovaný v inom súbore
-// Ak nie, budete ho musieť implementovať alebo importovať
-class ProductForm extends StatelessWidget {
-  final String workplace;
-  final String masterIp;
-  final Map<String, dynamic> product;
-
-  ProductForm({required this.workplace, required this.masterIp, required this.product});
-
-  @override
-  Widget build(BuildContext context) {
-    // Implementujte ProductForm podľa vašich potrieb
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Product Form'),
-      ),
-      body: Center(
-        child: Text('Product Form for ${product['product']}'),
-      ),
-    );
   }
 }

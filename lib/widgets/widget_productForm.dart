@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:masterwebserver/widgets/workplace/workplace_learning.dart';
 import '../../SQLite/database_helper.dart';
-
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'dart:convert';
 
 class ProductForm extends StatefulWidget {
   final String workplace;
   final String masterIp;
   final Map<String, dynamic> product;
+  final bool isLearningMode;
 
   ProductForm({
     required this.workplace,
     required this.masterIp,
     required this.product,
+    this.isLearningMode = false,
   });
 
   @override
@@ -21,18 +24,61 @@ class ProductForm extends StatefulWidget {
 class _ProductFormState extends State<ProductForm> {
   final DatabaseHelper _databaseHelper = DatabaseHelper();
   List<Map<String, dynamic>> _items = [];
+  bool _showFinishLearnButton = true;
+  Map<String, WebSocketChannel> _channels = {};
 
   @override
   void initState() {
     super.initState();
     _loadProductData();
     NotificationService.addListener(_onNewSensorAdded);
+    if (widget.isLearningMode) {
+      _initWebSockets();
+    }
   }
 
   @override
   void dispose() {
     NotificationService.removeListener(_onNewSensorAdded);
+    _closeWebSockets();
     super.dispose();
+  }
+
+  Future<void> _initWebSockets() async {
+    try {
+      final masterIPs = await _databaseHelper.getMasterIPsForWorkplace(widget.workplace);
+      for (var masterIP in masterIPs) {
+        _connectWebSocket(masterIP['master_ip']);
+      }
+    } catch (e) {
+      print('Error initializing WebSockets: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to initialize some connections')),
+      );
+    }
+  }
+
+  void _connectWebSocket(String masterIP) {
+    try {
+      final channel = WebSocketChannel.connect(Uri.parse('ws://$masterIP:81'));
+      _channels[masterIP] = channel;
+      channel.stream.listen(
+            (message) {
+          print('Received from $masterIP: $message');
+          // Handle incoming messages if needed
+        },
+        onError: (error) => print('WebSocket error from $masterIP: $error'),
+        onDone: () => print('WebSocket connection closed for $masterIP'),
+      );
+    } catch (e) {
+      print('Error connecting to WebSocket for $masterIP: $e');
+    }
+  }
+
+  void _closeWebSockets() {
+    for (var channel in _channels.values) {
+      channel.sink.close();
+    }
   }
 
   void _onNewSensorAdded(String message) {
@@ -42,13 +88,57 @@ class _ProductFormState extends State<ProductForm> {
   }
 
   Future<void> _loadProductData() async {
-    final data = await _databaseHelper.getProductDataWithMasterIP(
-        widget.product['product'],
-        widget.workplace
-    );
-    setState(() {
-      _items = data;
-    });
+    try {
+      final data = await _databaseHelper.getProductDataWithMasterIP(
+          widget.product['product'],
+          widget.workplace
+      );
+      setState(() {
+        _items = data;
+      });
+    } catch (e) {
+      print('Error loading product data: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load product data')),
+      );
+    }
+  }
+
+  Future<void> _finishLearn() async {
+    final data = {
+      "data": [
+        [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],[0,0,0]
+      ]
+    };
+
+    try {
+      for (var masterIP in _channels.keys) {
+        _channels[masterIP]!.sink.add(json.encode(data));
+      }
+
+      // Show popup for 2 seconds
+      await showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          Future.delayed(Duration(seconds: 2), () {
+            Navigator.of(context).pop(true);
+          });
+          return AlertDialog(
+            title: Text('Learning Process Finished'),
+            content: Text('The learning process has been completed successfully.'),
+          );
+        },
+      );
+
+      setState(() {
+        _showFinishLearnButton = false;
+      });
+    } catch (e) {
+      print('Error in finish learn process: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An error occurred while finishing the learning process')),
+      );
+    }
   }
 
   void _showAddOrEditItemDialog({Map<String, dynamic>? item}) {
@@ -114,21 +204,25 @@ class _ProductFormState extends State<ProductForm> {
                   'sensor_value': double.tryParse(sensorValueController.text) ?? 0.0,
                 };
 
-                if (item == null) {
-                  // Pridanie nového záznamu
-                  final id = await _databaseHelper.insertProductData(newItem);
-                  setState(() {
-                    _items = [..._items, {...newItem, 'id': id}];
-                  });
-                } else {
-                  // Aktualizácia existujúceho záznamu
-                  await _databaseHelper.updateProductData(item['id'], newItem);
-                  setState(() {
-                    _items = _items.map((i) => i['id'] == item['id'] ? {...newItem, 'id': item['id']} : i).toList();
-                  });
+                try {
+                  if (item == null) {
+                    final id = await _databaseHelper.insertProductData(newItem);
+                    setState(() {
+                      _items = [..._items, {...newItem, 'id': id}];
+                    });
+                  } else {
+                    await _databaseHelper.updateProductData(item['id'], newItem);
+                    setState(() {
+                      _items = _items.map((i) => i['id'] == item['id'] ? {...newItem, 'id': item['id']} : i).toList();
+                    });
+                  }
+                  Navigator.of(context).pop();
+                } catch (e) {
+                  print('Error saving sensor data: $e');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to save sensor data')),
+                  );
                 }
-
-                Navigator.of(context).pop();
               },
               child: Text(item == null ? "Add" : "Save"),
             ),
@@ -143,6 +237,14 @@ class _ProductFormState extends State<ProductForm> {
     return Scaffold(
       appBar: AppBar(
         title: Text("Sensors for ${widget.product['product']} in ${widget.workplace}"),
+        actions: [
+          if (widget.isLearningMode && _showFinishLearnButton)
+            IconButton(
+              icon: Icon(Icons.check),
+              onPressed: _finishLearn,
+              tooltip: 'Finish Learn',
+            ),
+        ],
       ),
       body: _items.isEmpty
           ? Center(child: Text('Learning in progress... Waiting for sensors.'))
