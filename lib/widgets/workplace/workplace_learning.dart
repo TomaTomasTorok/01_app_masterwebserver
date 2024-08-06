@@ -5,23 +5,23 @@ import 'dart:async';
 import '../../SQLite/database_helper.dart';
 import '../widget_productForm.dart';
 
-Future<void> handleLearning(BuildContext context, String workplaceId, DatabaseHelper databaseHelper) async {
+Future<Function> handleLearning(BuildContext context, String workplaceId, DatabaseHelper databaseHelper, Function finishCallback) async {
+  Map<String, WebSocketChannel> channels = {};
+  bool isFinished = false;
+
   try {
-    // Požiadať užívateľa o názov produktu
     final productName = await showProductNameDialog(context);
     if (productName == null || productName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Product name is required')));
-      return;
+      return () {};
     }
 
-    // Získať všetky Master_ip adresy pre dané pracovisko
     final masterIPs = await databaseHelper.getMasterIPsForWorkplace(workplaceId);
     if (masterIPs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No Master IPs found for this workplace')));
-      return;
+      return () {};
     }
 
-    // Pripraviť dáta na odoslanie
     final data = {
       "data": [
         [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],
@@ -29,8 +29,6 @@ Future<void> handleLearning(BuildContext context, String workplaceId, DatabaseHe
       ]
     };
 
-    // Inicializácia WebSocket spojení a odoslanie dát
-    Map<String, WebSocketChannel> channels = {};
     for (var masterIP in masterIPs) {
       try {
         final uri = Uri.parse('ws://${masterIP['master_ip']}:81');
@@ -38,6 +36,23 @@ Future<void> handleLearning(BuildContext context, String workplaceId, DatabaseHe
         channels[masterIP['master_ip']] = channel;
         await channel.ready;
         channel.sink.add(json.encode(data));
+
+        channel.stream.listen(
+              (message) async {
+            try {
+              print('Received message from ${masterIP['master_ip']}: $message');
+              await processAndSaveResponse(databaseHelper, workplaceId, productName, masterIP['master_ip'], message.toString());
+              NotificationService.notify('new_sensor_added');
+            } catch (e) {
+              print('Error processing message from ${masterIP['master_ip']}: $e');
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Error processing data from ${masterIP['master_ip']}: $e')),
+              );
+            }
+          },
+          onError: (error) => print('WebSocket error from ${masterIP['master_ip']}: $error'),
+          onDone: () => print('WebSocket connection closed for ${masterIP['master_ip']}'),
+        );
       } catch (e) {
         print('Error connecting to WebSocket for ${masterIP['master_ip']}: $e');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -46,7 +61,16 @@ Future<void> handleLearning(BuildContext context, String workplaceId, DatabaseHe
       }
     }
 
-    // Presmerovať na ProductForm
+    void onFinishLearning() {
+      if (!isFinished) {
+        isFinished = true;
+        for (var channel in channels.values) {
+          channel.sink.close();
+        }
+        finishCallback();
+      }
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -55,70 +79,26 @@ Future<void> handleLearning(BuildContext context, String workplaceId, DatabaseHe
           masterIp: masterIPs.first['master_ip'],
           product: {'product': productName},
           isLearningMode: true,
+          onFinishLearning: onFinishLearning,
         ),
       ),
     );
 
-    // Spracovanie odpovedí
-    List<Future> futures = [];
-    for (var entry in channels.entries) {
-      futures.add(_processWebSocketMessages(
-        context,
-        entry.key,
-        entry.value,
-        databaseHelper,
-        workplaceId,
-        productName,
-      ));
-    }
-
-    // Čakanie na dokončenie všetkých WebSocket spojení
-    await Future.wait(futures);
-
-    // Zatvorenie všetkých WebSocket spojení
-    for (var channel in channels.values) {
-      await channel.sink.close();
-    }
-
-    // Zobrazenie pop-up okna o ukončení procesu učenia
-    await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        Future.delayed(Duration(seconds: 2), () {
-          Navigator.of(context).pop(true);
-        });
-        return AlertDialog(
-          title: Text('Learning Process Finished'),
-          content: Text('The learning process has been completed for all Master IPs.'),
-        );
-      },
-    );
-
+    // Return a function that closes all WebSocket connections
+    return () {
+      if (!isFinished) {
+        isFinished = true;
+        for (var channel in channels.values) {
+          channel.sink.close();
+        }
+        finishCallback();
+        print('Cleaning up learning process for $workplaceId');
+      }
+    };
   } catch (e) {
     print('Unhandled error in handleLearning: $e');
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An unexpected error occurred: $e')));
-  }
-}
-
-Future<void> _processWebSocketMessages(
-    BuildContext context,
-    String masterIP,
-    WebSocketChannel channel,
-    DatabaseHelper databaseHelper,
-    String workplaceId,
-    String productName,
-    ) async {
-  await for (var message in channel.stream) {
-    try {
-      print('Received message from $masterIP: $message');
-      await processAndSaveResponse(databaseHelper, workplaceId, productName, masterIP, message.toString());
-      NotificationService.notify('new_sensor_added');
-    } catch (e) {
-      print('Error processing message from $masterIP: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error processing data from $masterIP: $e')),
-      );
-    }
+    return () {};
   }
 }
 

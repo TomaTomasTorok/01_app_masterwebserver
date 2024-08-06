@@ -9,12 +9,14 @@ class ProductForm extends StatefulWidget {
   final String masterIp;
   final Map<String, dynamic> product;
   final bool isLearningMode;
+  final Function? onFinishLearning;
 
   ProductForm({
     required this.workplace,
     required this.masterIp,
     required this.product,
     this.isLearningMode = false,
+    this.onFinishLearning,
   });
 
   @override
@@ -25,7 +27,7 @@ class _ProductFormState extends State<ProductForm> {
   final DatabaseHelper _databaseHelper = DatabaseHelper();
   List<Map<String, dynamic>> _items = [];
   bool _showFinishLearnButton = true;
-  Map<String, WebSocketChannel> _channels = {};
+  WebSocketChannel? _channel;
 
   @override
   void initState() {
@@ -33,51 +35,43 @@ class _ProductFormState extends State<ProductForm> {
     _loadProductData();
     NotificationService.addListener(_onNewSensorAdded);
     if (widget.isLearningMode) {
-      _initWebSockets();
+      _initializeWebSocket();
     }
   }
 
   @override
   void dispose() {
     NotificationService.removeListener(_onNewSensorAdded);
-    _closeWebSockets();
+    _closeWebSocket();
     super.dispose();
   }
 
-  Future<void> _initWebSockets() async {
-    try {
-      final masterIPs = await _databaseHelper.getMasterIPsForWorkplace(widget.workplace);
-      for (var masterIP in masterIPs) {
-        _connectWebSocket(masterIP['master_ip']);
+  void _initializeWebSocket() {
+    _channel = WebSocketChannel.connect(Uri.parse('ws://${widget.masterIp}:81'));
+  }
+
+  void _closeWebSocket() {
+    _channel?.sink.close();
+    _channel = null;
+  }
+
+  Future<void> stopTesting() async {
+    if (_channel != null) {
+      final stopData = {
+        "data": [
+          [1,2,3,4,5,6,7,8,9,10],
+          [0,0,0]
+        ]
+      };
+
+      try {
+        _channel!.sink.add(json.encode(stopData));
+        await Future.delayed(Duration(milliseconds: 100)); // Give some time for the message to be sent
+        await _channel!.sink.close();
+        _channel = null;
+      } catch (e) {
+        print('Error sending stop signal or closing channel: $e');
       }
-    } catch (e) {
-      print('Error initializing WebSockets: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to initialize some connections')),
-      );
-    }
-  }
-
-  void _connectWebSocket(String masterIP) {
-    try {
-      final channel = WebSocketChannel.connect(Uri.parse('ws://$masterIP:81'));
-      _channels[masterIP] = channel;
-      channel.stream.listen(
-            (message) {
-          print('Received from $masterIP: $message');
-          // Handle incoming messages if needed
-        },
-        onError: (error) => print('WebSocket error from $masterIP: $error'),
-        onDone: () => print('WebSocket connection closed for $masterIP'),
-      );
-    } catch (e) {
-      print('Error connecting to WebSocket for $masterIP: $e');
-    }
-  }
-
-  void _closeWebSockets() {
-    for (var channel in _channels.values) {
-      channel.sink.close();
     }
   }
 
@@ -105,18 +99,10 @@ class _ProductFormState extends State<ProductForm> {
   }
 
   Future<void> _finishLearn() async {
-    final data = {
-      "data": [
-        [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20],[0,0,0]
-      ]
-    };
-
     try {
-      for (var masterIP in _channels.keys) {
-        _channels[masterIP]!.sink.add(json.encode(data));
-      }
+      await stopTesting();
+      widget.onFinishLearning?.call();
 
-      // Show popup for 2 seconds
       await showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -267,5 +253,3 @@ class _ProductFormState extends State<ProductForm> {
     );
   }
 }
-
-//

@@ -15,6 +15,7 @@ class _WorkplaceListState extends State<WorkplaceList> {
   final DatabaseHelper _databaseHelper = DatabaseHelper();
   List<Map<String, dynamic>> workplaces = [];
   final TestingManager _testingManager = TestingManager();
+  Map<String, Function> _learningCallbacks = {};
 
   @override
   void initState() {
@@ -27,6 +28,58 @@ class _WorkplaceListState extends State<WorkplaceList> {
     setState(() {
       workplaces = results;
     });
+  }
+
+  void _cleanupLearningCallbacks() {
+    for (var callback in _learningCallbacks.values) {
+      try {
+        callback();
+      } catch (e) {
+        print('Error during callback cleanup: $e');
+      }
+    }
+    _learningCallbacks.clear();
+  }
+
+  void _startLearning(String workplaceId) async {
+    // Cleanup existing callback for this workplace if it exists
+    if (_learningCallbacks.containsKey(workplaceId)) {
+      try {
+        _learningCallbacks[workplaceId]!();
+      } catch (e) {
+        print('Error cleaning up existing learning process: $e');
+      }
+      _learningCallbacks.remove(workplaceId);
+    }
+
+    void finishLearningCallback() {
+      if (mounted && _learningCallbacks.containsKey(workplaceId)) {
+        try {
+          _learningCallbacks[workplaceId]!();
+        } catch (e) {
+          print('Error during learning callback: $e');
+        } finally {
+          _learningCallbacks.remove(workplaceId);
+        }
+        setState(() {});
+      }
+    }
+
+    try {
+      _learningCallbacks[workplaceId] = await handleLearning(
+        context,
+        workplaceId,
+        _databaseHelper,
+        finishLearningCallback,
+      );
+    } catch (e) {
+      print('Error starting learning process: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to start learning process')),
+        );
+      }
+    }
   }
 
   @override
@@ -46,6 +99,7 @@ class _WorkplaceListState extends State<WorkplaceList> {
             testingManager: _testingManager,
             onRefresh: _loadWorkplaces,
             onTestingToggle: () => setState(() {}),
+            onLearningStart: () => _startLearning(workplace['workplace_id']),
           );
         },
       ),
@@ -56,6 +110,12 @@ class _WorkplaceListState extends State<WorkplaceList> {
       ),
     );
   }
+
+  @override
+  void dispose() {
+    _cleanupLearningCallbacks();
+    super.dispose();
+  }
 }
 
 class AlternatingColorListTile extends StatelessWidget {
@@ -65,6 +125,7 @@ class AlternatingColorListTile extends StatelessWidget {
   final TestingManager testingManager;
   final VoidCallback onRefresh;
   final VoidCallback onTestingToggle;
+  final VoidCallback onLearningStart;
 
   const AlternatingColorListTile({
     Key? key,
@@ -74,6 +135,7 @@ class AlternatingColorListTile extends StatelessWidget {
     required this.testingManager,
     required this.onRefresh,
     required this.onTestingToggle,
+    required this.onLearningStart,
   }) : super(key: key);
 
   @override
@@ -113,7 +175,7 @@ class AlternatingColorListTile extends StatelessWidget {
             SizedBox(width: 8),
             ElevatedButton(
               child: Text('Learning'),
-              onPressed: () => handleLearning(context, workplace['workplace_id'], databaseHelper),
+              onPressed: onLearningStart,
             ),
             SizedBox(width: 8),
             ElevatedButton(
