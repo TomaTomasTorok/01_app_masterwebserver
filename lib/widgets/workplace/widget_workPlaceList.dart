@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:masterwebserver/widgets/workplace/workplace_learning.dart';
 import 'package:masterwebserver/widgets/workplace/workplace_testing.dart';
+import '../../JsonServ/task_services.dart';
 import '../../SQLite/database_helper.dart';
 import '../MasterIPList.dart';
 import '../widget_productList.dart';
@@ -16,10 +17,12 @@ class _WorkplaceListState extends State<WorkplaceList> {
   List<Map<String, dynamic>> workplaces = [];
   final TestingManager _testingManager = TestingManager();
   Map<String, Function> _learningCallbacks = {};
+  late final TaskService _taskService;
 
   @override
   void initState() {
     super.initState();
+    _taskService = TaskService(_databaseHelper);
     _loadWorkplaces();
   }
 
@@ -87,6 +90,18 @@ class _WorkplaceListState extends State<WorkplaceList> {
     return Scaffold(
       appBar: AppBar(
         title: Text("Workplace List"),
+        actions: [
+          ElevatedButton(
+            onPressed: () async {
+              await _taskService.synchronizeJsonWithDatabase();
+              await _taskService.processNewTasks();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Tasks synchronized and processed')),
+              );
+            },
+            child: Text("Sync & Process"),
+          ),
+        ],
       ),
       body: ListView.builder(
         itemCount: workplaces.length,

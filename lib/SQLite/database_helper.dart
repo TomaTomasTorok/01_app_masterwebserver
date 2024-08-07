@@ -2,6 +2,8 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import 'dart:io';
 
+import '../model/task.dart';
+
 class DatabaseHelper {
   static Database? _database;
   static const String DEFAULT_PRODUCT = 'DEFAULT_PRODUCT';
@@ -208,4 +210,60 @@ class DatabaseHelper {
       whereArgs: [productName, workplaceId],
     );
   }
+
+
+
+
+
+  Future<bool> taskExists(Task task) async {
+    final db = await database;
+    var result = await db.query(
+      'work_data',
+      where: 'product = ? AND timestamp_created = ?',
+      whereArgs: [task.product, task.timestampCreated.toIso8601String()],
+      limit: 1,
+    );
+    return result.isNotEmpty;
+  }
+
+  Future<int> insertTask(Task task) async {
+    final db = await database;
+    return await db.insert('work_data', task.toMap());
+  }
+
+  Future<List<Task>> getNewTasks() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'work_data',
+      where: 'status = ?',
+      whereArgs: ['NEW'],
+    );
+
+    return List.generate(maps.length, (i) {
+      return Task.fromMap(maps[i]);
+    });
+  }
+
+  Future<int> updateTask(Task task) async {
+    final db = await database;
+    return await db.update(
+      'work_data',
+      task.toMap(),
+      where: 'id = ?',
+      whereArgs: [task.id],
+    );
+  }
+
+  Future<bool> productExists(String productName, String workplaceId) async {
+    final db = await database;
+    var result = await db.query(
+      'product_data',
+      where: 'product = ? AND workplace_id = ?',
+      whereArgs: [productName, workplaceId],
+      limit: 1,
+    );
+    return result.isNotEmpty;
+  }
+
+
 }
