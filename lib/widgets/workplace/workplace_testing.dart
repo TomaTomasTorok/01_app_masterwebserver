@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import '../../SQLite/database_helper.dart';
 
 class TestingManager {
@@ -26,7 +28,9 @@ class TestingManager {
     try {
       final masterIPs = await databaseHelper.getMasterIPsForWorkplace(workplaceId);
       if (masterIPs.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No Master IPs found for this workplace')));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No Master IPs found for this workplace')));
+        }
         return;
       }
 
@@ -46,9 +50,10 @@ class TestingManager {
             throw FormatException('Invalid IP address format');
           }
 
-          final channel = WebSocketChannel.connect(uri);
+          WebSocket socket = await WebSocket.connect(uri.toString())
+              .timeout(Duration(seconds: 5));
+          final channel = IOWebSocketChannel(socket);
           activeChannels[workplaceId]!.add(channel);
-          await channel.ready;
 
           channel.sink.add(json.encode(data));
 
@@ -70,7 +75,9 @@ class TestingManager {
       }
     } catch (e) {
       print('Unhandled error in startTesting: $e');
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An unexpected error occurred: $e')));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An unexpected error occurred: $e')));
+      }
     }
   }
 

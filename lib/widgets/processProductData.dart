@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../SQLite/database_helper.dart';
 
@@ -33,7 +35,6 @@ class ProductDataProcessor {
       await _closeResources();
     }
   }
-
   Future<List<Map<String, dynamic>>> _fetchProductData() async {
     print('Fetching product data from database for $productName...');
     try {
@@ -76,7 +77,11 @@ class ProductDataProcessor {
     for (var masterIP in allMasterIPs) {
       try {
         print('Connecting to WebSocket for $masterIP...');
-        final channel = await WebSocketChannel.connect(Uri.parse('ws://$masterIP:81'));
+
+        final socket = await WebSocket.connect('ws://$masterIP:81')
+            .timeout(Duration(seconds: 5));
+        final channel = IOWebSocketChannel(socket);
+
         channels[masterIP] = channel;
         streamControllers[masterIP] = StreamController<String>.broadcast();
 
@@ -92,6 +97,7 @@ class ProductDataProcessor {
         print('Successfully connected to WebSocket for $masterIP');
       } catch (e) {
         print('Error connecting to WebSocket for $masterIP: $e');
+        // We're not throwing an exception here to allow the process to continue with other IPs
       }
     }
 
@@ -101,7 +107,6 @@ class ProductDataProcessor {
     }
     print('WebSocket channels prepared: ${channels.length} channels');
   }
-
   Future<void> _processCycles(Map<int, Map<String, List<Map<String, dynamic>>>> groupedData) async {
     List<int> sortedSequences = groupedData.keys.toList()..sort();
     print('Processing cycles. Sorted sequences: $sortedSequences');
@@ -194,6 +199,11 @@ Future<void> processProductData(String productName, String workplaceId) async {
   print('Starting processProductData function for $productName in workplace $workplaceId');
   final databaseHelper = DatabaseHelper();
   final processor = ProductDataProcessor(productName, workplaceId, databaseHelper);
-  await processor.processProductData();
-  print('processProductData function completed for $productName in workplace $workplaceId');
+  try {
+    await processor.processProductData();
+    print('processProductData function completed for $productName in workplace $workplaceId');
+  } catch (e) {
+    print('Error in processProductData: $e');
+    rethrow;  // This will ensure the error is propagated to handleCall
+  }
 }

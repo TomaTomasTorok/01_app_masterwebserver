@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../SQLite/database_helper.dart';
@@ -47,11 +49,15 @@ class _ProductListState extends State<ProductList> {
       return;
     }
 
+    // Show loading indicator
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return Center(child: CircularProgressIndicator());
+        return WillPopScope(
+          onWillPop: () async => false,
+          child: Center(child: CircularProgressIndicator()),
+        );
       },
     );
 
@@ -59,16 +65,58 @@ class _ProductListState extends State<ProductList> {
       await processProductData(productName, widget.workplaceId);
 
       if (!mounted) return;
+
+      // Close loading indicator
+      Navigator.of(context).pop();
+
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Call completed for $productName')));
     } catch (e) {
       print('Error in handleCall: $e');
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An error occurred: $e')));
-    } finally {
-      if (mounted) {
-        Navigator.of(context).pop(); // Zatvorí indikátor priebehu
-      }
+
+      // Close loading indicator
+      Navigator.of(context).pop();
+
+      // Show error popup
+      print('Attempting to show error popup');
+      showPersistentErrorDialog(context, e.toString());
     }
+  }
+
+  void showPersistentErrorDialog(BuildContext context, String errorMessage) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        // Start a timer to close the dialog after 10 seconds
+        Timer(Duration(seconds: 10), () {
+          if (Navigator.canPop(context)) {
+            Navigator.of(context).pop();
+            print('Popup closed by timer');
+          }
+        });
+
+        return WillPopScope(
+          onWillPop: () async => false,
+          child: AlertDialog(
+            title: Text('Error'),
+            content: Text('An error occurred while processing the product: $errorMessage'),
+            actions: <Widget>[
+              TextButton(
+                child: Text('OK'),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  print('Popup closed by user');
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    ).then((_) => print('showDialog completed'));
+
+    // Show the original error snackbar
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An error occurred: $errorMessage')));
   }
 
   void _openProductForm(Map<String, dynamic> product) {

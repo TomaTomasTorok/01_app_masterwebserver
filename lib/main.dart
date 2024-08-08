@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:masterwebserver/widgets/workplace/widget_workPlaceList.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'JsonServ/task_services.dart';
+import 'Log/logger.dart';
 import 'SQLite/database_helper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  await Logger.initialize();
+  await Logger.log('Application started');
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
