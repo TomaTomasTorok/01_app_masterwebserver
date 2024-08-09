@@ -5,6 +5,7 @@ import '../../JsonServ/task_services.dart';
 import '../../Log/log_view_screan.dart';
 import '../../Log/logger.dart';
 import '../../SQLite/database_helper.dart';
+import '../../main.dart';
 import '../MasterIPList.dart';
 import '../widget_productList.dart';
 import 'workplace_dialog.dart';
@@ -99,6 +100,7 @@ class _WorkplaceListState extends State<WorkplaceList> {
         actions: [
           ElevatedButton(
             onPressed: () async {
+              print("kocúrik");
               await _taskService.synchronizeJsonWithDatabase();
               await _taskService.processNewTasks();
               ScaffoldMessenger.of(context).showSnackBar(
@@ -107,51 +109,50 @@ class _WorkplaceListState extends State<WorkplaceList> {
             },
             child: Text("Sync & Process"),
           ),
-    IconButton(
-    icon: Icon(Icons.assessment),
-    onPressed: () async {
-    final logFiles = await Logger.getLogFiles();
-    Logger.log('Found ${logFiles.length} log files');
-    showDialog(
-    context: context,
-    builder: (BuildContext context) {
-    return AlertDialog(
-    title: Text('Log Files'),
-    content: Container(
-    width: double.maxFinite,
-    child: ListView.builder(
-    itemCount: logFiles.length,
-    itemBuilder: (context, index) {
-    return ListTile(
-    title: Text(logFiles[index]),
-    onTap: () async {
-    final logContent = await Logger.readLogFile(logFiles[index]);
-    Navigator.of(context).push(
-    MaterialPageRoute(
-    builder: (context) => LogViewerScreen(
-    fileName: logFiles[index],
-    logContent: logContent,
-    ),
-    ),
-    );
-    },
-    );
-    },
-    ),
-    ),
-    actions: [
-    TextButton(
-    child: Text('Close'),
-    onPressed: () {
-    Navigator.of(context).pop();
-    },
-    ),
-    ],
-    );
-    },
-    );
-    },
-    ),
+          IconButton(
+            icon: Icon(Icons.assessment),
+            onPressed: () async {
+              final logFiles = await getLogFiles();
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: Text('Log Files'),
+                    content: Container(
+                      width: double.maxFinite,
+                      child: ListView.builder(
+                        itemCount: logFiles.length,
+                        itemBuilder: (context, index) {
+                          return ListTile(
+                            title: Text(logFiles[index]),
+                            onTap: () async {
+                              final logContent = await readLogFile(logFiles[index]);
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => LogViewerScreen(
+                                    fileName: logFiles[index],
+                                    logContent: logContent,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    actions: [
+                      TextButton(
+                        child: Text('Close'),
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
         ],
       ),
       body: ListView.builder(

@@ -20,13 +20,14 @@ class TaskService {
   }
 
   Future<void> synchronizeJsonWithDatabase() async {
-    final file = File(jsonFilePath);
-    if (!await file.exists()) {
-      print('JSON file does not exist: $jsonFilePath');
-      return;
-    }
-
     try {
+      await _initJsonFilePath();
+      final file = File(jsonFilePath);
+      if (!await file.exists()) {
+        print('JSON file does not exist: $jsonFilePath');
+        return;
+      }
+
       final jsonString = await file.readAsString();
       final List<dynamic> jsonList = json.decode(jsonString);
 
