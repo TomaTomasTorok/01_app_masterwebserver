@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:masterwebserver/widgets/workplace/workplace_learning.dart';
 import 'package:masterwebserver/widgets/workplace/workplace_testing.dart';
-import '../../JsonServ/task_services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../Log/log_view_screan.dart';
 import '../../Log/logger.dart';
 import '../../SQLite/database_helper.dart';
+import '../../Services/jsonTaskService.dart';
+import '../../Services/task_services.dart';
 import '../../main.dart';
 import '../MasterIPList.dart';
+import '../processProductData.dart';
 import '../widget_productList.dart';
 import 'workplace_dialog.dart';
 import 'package:web_socket_channel/io.dart';
@@ -22,16 +26,20 @@ class WorkplaceList extends StatefulWidget {
 
 class _WorkplaceListState extends State<WorkplaceList> {
   final DatabaseHelper _databaseHelper = DatabaseHelper();
+  late JsonTaskSynchronizer jsonTaskSynchronizer;
   List<Map<String, dynamic>> workplaces = [];
   final TestingManager _testingManager = TestingManager();
   Map<String, Function> _learningCallbacks = {};
   late final TaskService _taskService;
+  Map<String, bool> _checkedWorkplaces = {};
 
   @override
   void initState() {
     super.initState();
+    jsonTaskSynchronizer = JsonTaskSynchronizer(_databaseHelper);
     _taskService = TaskService(_databaseHelper);
     _loadWorkplaces();
+    _loadCheckedWorkplaces();
   }
 
   Future<void> _loadWorkplaces() async {
@@ -39,6 +47,22 @@ class _WorkplaceListState extends State<WorkplaceList> {
     setState(() {
       workplaces = results;
     });
+    _loadCheckedWorkplaces();
+  }
+
+  Future<void> _loadCheckedWorkplaces() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      for (var workplace in workplaces) {
+        String workplaceId = workplace['workplace_id'];
+        _checkedWorkplaces[workplaceId] = prefs.getBool(workplaceId) ?? false;
+      }
+    });
+  }
+
+  Future<void> _saveCheckedWorkplace(String workplaceId, bool isChecked) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(workplaceId, isChecked);
   }
 
   void _cleanupLearningCallbacks() {
@@ -98,16 +122,64 @@ class _WorkplaceListState extends State<WorkplaceList> {
       appBar: AppBar(
         title: Text("Workplace List"),
         actions: [
+          // ElevatedButton(
+          //   onPressed: () async {
+          //     await jsonTaskSynchronizer.synchronizeJsonWithDatabase();
+          //     await _taskService.processNewTasks();
+          //     ScaffoldMessenger.of(context).showSnackBar(
+          //       SnackBar(content: Text('Tasks synchronized and processed')),
+          //     );
+          //   },
+          //   child: Text("Online - Sync & Process"),
+          // ),
           ElevatedButton(
             onPressed: () async {
-              print("kocúrik");
-              await _taskService.synchronizeJsonWithDatabase();
-              await _taskService.processNewTasks();
+              List<String> checkedWorkplaceIds = getCheckedWorkplaceIds();
+              if (checkedWorkplaceIds.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Please select at least one workplace')),
+                );
+                return;
+              }
+
+              for (String workplaceId in checkedWorkplaceIds) {
+                await jsonTaskSynchronizer.synchronizeJsonWithDatabase(workplaceId);
+                await _taskService.processNewTasks(workplaceId);
+              }
+
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Tasks synchronized and processed')),
+                SnackBar(content: Text('Tasks synchronized and processed for selected workplaces')),
               );
             },
-            child: Text("Sync & Process"),
+            child: Text("Online - Sync & Process"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              List<String> checkedWorkplaceIds = getCheckedWorkplaceIds();
+              if (checkedWorkplaceIds.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Please select at least one workplace')),
+                );
+                return;
+              }
+
+              for (String workplaceId in checkedWorkplaceIds) {
+                _taskService.cancelProcessor(workplaceId);
+              }
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Tasks stopped')),
+              );
+            },
+
+
+            // onPressed: () async {
+            //   _taskService.cancelProcessor();
+            //   ScaffoldMessenger.of(context).showSnackBar(
+            //     SnackBar(content: Text('Tasks stopped')),
+            //   );
+            // },
+            child: Text("Finish"),
           ),
           IconButton(
             icon: Icon(Icons.assessment),
@@ -167,6 +239,13 @@ class _WorkplaceListState extends State<WorkplaceList> {
             onRefresh: _loadWorkplaces,
             onTestingToggle: () => setState(() {}),
             onLearningStart: () => _startLearning(workplace['workplace_id']),
+            isChecked: _checkedWorkplaces[workplace['workplace_id']] ?? false,
+            onCheckboxChanged: (bool? value) {
+              setState(() {
+                _checkedWorkplaces[workplace['workplace_id']] = value ?? false;
+                _saveCheckedWorkplace(workplace['workplace_id'], value ?? false);
+              });
+            },
           );
         },
       ),
@@ -176,6 +255,13 @@ class _WorkplaceListState extends State<WorkplaceList> {
         tooltip: "Add Workplace",
       ),
     );
+  }
+
+  List<String> getCheckedWorkplaceIds() {
+    return _checkedWorkplaces.entries
+        .where((entry) => entry.value)
+        .map((entry) => entry.key)
+        .toList();
   }
 
   @override
@@ -193,6 +279,8 @@ class AlternatingColorListTile extends StatefulWidget {
   final VoidCallback onRefresh;
   final VoidCallback onTestingToggle;
   final VoidCallback onLearningStart;
+  final bool isChecked;
+  final ValueChanged<bool?> onCheckboxChanged;
 
   const AlternatingColorListTile({
     Key? key,
@@ -203,6 +291,8 @@ class AlternatingColorListTile extends StatefulWidget {
     required this.onRefresh,
     required this.onTestingToggle,
     required this.onLearningStart,
+    required this.isChecked,
+    required this.onCheckboxChanged,
   }) : super(key: key);
 
   @override
@@ -221,6 +311,10 @@ class _AlternatingColorListTileState extends State<AlternatingColorListTile> {
     return Container(
       color: widget.index % 2 == 0 ? color1 : color2,
       child: ListTile(
+        leading: Checkbox(
+          value: widget.isChecked,
+          onChanged: widget.onCheckboxChanged,
+        ),
         title: Text(
           widget.workplace['workplace_id'],
           style: TextStyle(color: colorScheme.onSurface),
@@ -300,110 +394,5 @@ class _AlternatingColorListTileState extends State<AlternatingColorListTile> {
         ),
       ),
     );
-  }
-}
-
-class TestingManager {
-  Map<String, bool> testingState = {};
-  Map<String, List<WebSocketChannel>> activeChannels = {};
-
-  bool isTestingForWorkplace(String workplaceId) {
-    return testingState[workplaceId] ?? false;
-  }
-
-  Future<void> toggleTesting(BuildContext context, String workplaceId, DatabaseHelper databaseHelper, VoidCallback updateUI) async {
-    if (!isTestingForWorkplace(workplaceId)) {
-      await startTesting(context, workplaceId, databaseHelper);
-    } else {
-      await stopTesting(context, workplaceId);
-    }
-    testingState[workplaceId] = !isTestingForWorkplace(workplaceId);
-    updateUI();
-  }
-
-  Future<void> startTesting(BuildContext context, String workplaceId, DatabaseHelper databaseHelper) async {
-    try {
-      final masterIPs = await databaseHelper.getMasterIPsForWorkplace(workplaceId);
-      if (masterIPs.isEmpty) {
-        throw Exception('No Master IPs found for this workplace');
-      }
-
-      final data = {
-        "data": [
-          [0],
-          [99,0,0]
-        ]
-      };
-
-      activeChannels[workplaceId] = [];
-
-      for (var masterIP in masterIPs) {
-        try {
-          final uri = Uri.parse('ws://${masterIP['master_ip']}:81');
-          if (!isValidIpAddress(masterIP['master_ip'])) {
-            throw FormatException('Invalid IP address format');
-          }
-
-          WebSocket socket = await WebSocket.connect(uri.toString())
-              .timeout(Duration(seconds: 5));
-          final channel = IOWebSocketChannel(socket);
-
-          activeChannels[workplaceId]!.add(channel);
-
-          channel.sink.add(json.encode(data));
-
-          channel.stream.listen(
-                (message) {
-              print('Received message from ${masterIP['master_ip']}: $message');
-            },
-            onDone: () {
-              print('WebSocket closed for ${masterIP['master_ip']}');
-            },
-            onError: (error) {
-              print('WebSocket error for ${masterIP['master_ip']}: $error');
-            },
-          );
-        } catch (e) {
-          print('Error connecting to WebSocket for ${masterIP['master_ip']}: $e');
-        }
-      }
-
-      if (activeChannels[workplaceId]!.isEmpty) {
-        throw Exception('Failed to connect to any WebSocket');
-      }
-    } catch (e) {
-      print('Unhandled error in startTesting: $e');
-      throw e;  // Re-throw the exception to be caught in the UI
-    }
-  }
-
-  Future<void> stopTesting(BuildContext context, String workplaceId) async {
-    if (activeChannels.containsKey(workplaceId)) {
-      final stopData = {
-        "data": [
-          [0],
-          [0,0,0]
-        ]
-      };
-
-      for (var channel in activeChannels[workplaceId]!) {
-        try {
-          channel.sink.add(json.encode(stopData));
-          await Future.delayed(Duration(milliseconds: 100));
-          await channel.sink.close();
-        } catch (e) {
-          print('Error sending stop signal or closing channel: $e');
-        }
-      }
-      activeChannels[workplaceId]!.clear();
-    }
-  }
-
-  bool isValidIpAddress(String ipAddress) {
-    try {
-      return InternetAddress.tryParse(ipAddress) != null;
-    } catch (e) {
-      return false;
-    }
   }
 }

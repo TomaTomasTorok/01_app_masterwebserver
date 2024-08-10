@@ -25,13 +25,13 @@
 //
 //   runApp(MyApp(taskService: taskService));
 // }
-//
+
 
 
 import 'package:flutter/material.dart';
 import 'package:masterwebserver/widgets/workplace/widget_workPlaceList.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'JsonServ/task_services.dart';
+
 import 'Log/logger.dart';
 import 'SQLite/database_helper.dart';
 
@@ -41,6 +41,8 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import 'Services/task_services.dart';
 
 late IOSink _logFile;
 late ZoneSpecification _spec;
@@ -109,15 +111,15 @@ Future<Widget> _buildApp() async {
   print('Database and services initialized');
 
   try {
-    await taskService.synchronizeJsonWithDatabase();
-    await taskService.processNewTasks();
+    // taskService.synchronizeJsonWithDatabase();
+  //   taskService.processNewTasks();
     print('Tasks synchronized and processed');
   } catch (e, stackTrace) {
     print('Error processing tasks: $e');
     print('Stack trace: $stackTrace');
   }
-
   return MyApp(taskService: taskService);
+
 }
 
 class MyApp extends StatelessWidget {

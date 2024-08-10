@@ -6,6 +6,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import '../SQLite/database_helper.dart';
 
 class ProductDataProcessor {
+  late bool isCancel = false;
   final String productName;
   final String workplaceId;
   final DatabaseHelper databaseHelper;
@@ -17,15 +18,41 @@ class ProductDataProcessor {
   Future<void> processProductData() async {
     print('Starting processProductData for product: $productName, workplace: $workplaceId');
     try {
+      if (isCancel) {
+        print('Process cancelled before fetching product data.');
+        return;
+      }
+
       final productData = await _fetchProductData();
+
+      if (isCancel) {
+        print('Process cancelled before grouping data.');
+        return;
+      }
+
       print('Product data fetched successfully. Grouping data...');
       final groupedData = _groupDataBySequenceAndMasterIP(productData);
+
+      if (isCancel) {
+        print('Process cancelled before preparing WebSocket channels.');
+        return;
+      }
+
       print('Data grouped. Preparing WebSocket channels...');
-
       await _prepareWebSocketChannels(groupedData);
-      print('WebSocket channels prepared. Starting to process cycles...');
 
+      if (isCancel) {
+        print('Process cancelled before starting to process cycles.');
+        return;
+      }
+
+      print('WebSocket channels prepared. Starting to process cycles...');
       await _processCycles(groupedData);
+
+      if (isCancel) {
+        print('Process cancelled after processing cycles.');
+        return;
+      }
 
       print('All cycles completed successfully');
     } catch (e) {
@@ -35,6 +62,7 @@ class ProductDataProcessor {
       await _closeResources();
     }
   }
+
   Future<List<Map<String, dynamic>>> _fetchProductData() async {
     print('Fetching product data from database for $productName...');
     try {
@@ -75,6 +103,11 @@ class ProductDataProcessor {
     print('Unique Master IPs: $allMasterIPs');
 
     for (var masterIP in allMasterIPs) {
+      if (isCancel) {
+        print('Process cancelled before connecting to WebSocket for $masterIP.');
+        return;
+      }
+
       try {
         print('Connecting to WebSocket for $masterIP...');
 
@@ -107,10 +140,16 @@ class ProductDataProcessor {
     }
     print('WebSocket channels prepared: ${channels.length} channels');
   }
+
   Future<void> _processCycles(Map<int, Map<String, List<Map<String, dynamic>>>> groupedData) async {
     List<int> sortedSequences = groupedData.keys.toList()..sort();
     print('Processing cycles. Sorted sequences: $sortedSequences');
     for (var sequence in sortedSequences) {
+      if (isCancel) {
+        print('Process cancelled before processing sequence $sequence.');
+        return;
+      }
+
       print('Starting to process sequence $sequence');
       Map<String, List<Map<String, dynamic>>> sequenceData = groupedData[sequence]!;
       print('Sequence $sequence: Processing ${sequenceData.length} Master IPs');
@@ -135,6 +174,11 @@ class ProductDataProcessor {
   }
 
   void _sendDataToMasterIP(String masterIP, List<Map<String, dynamic>> data) {
+    if (isCancel) {
+      print('Process cancelled before sending data to $masterIP.');
+      return;
+    }
+
     try {
       print('Formatting data for $masterIP. ${data.length} items to send.');
       var formattedData = [
@@ -152,8 +196,18 @@ class ProductDataProcessor {
   Future<void> _waitForConfirmations(Map<String, bool> confirmations) async {
     print('Waiting for confirmations from ${confirmations.length} Master IPs');
     await Future.wait(confirmations.keys.map((masterIP) async {
+      if (isCancel) {
+        print('Process cancelled while waiting for confirmations.');
+        return;
+      }
+
       print('Starting to listen for confirmation from $masterIP');
       await for (var message in streamControllers[masterIP]!.stream) {
+        if (isCancel) {
+          print('Process cancelled during confirmation.');
+          return;
+        }
+
         print('Processing message from $masterIP: $message');
         if (message.toString().trim().toLowerCase() == 'master:hotovo' ||
             message.toString().trim().toLowerCase() == 'master: hotovo') {
@@ -163,8 +217,19 @@ class ProductDataProcessor {
         } else {
           print('Unrecognized message from $masterIP: $message');
         }
+
+        if (isCancel) {
+          print('Process cancelled during confirmation wait.');
+          return;
+        }
+        await Future.delayed(Duration(milliseconds: 100));  // Krátke oneskorenie, aby sme nezablokovali vlákno
       }
     }));
+
+    if (isCancel) {
+      print('Process cancelled after waiting for confirmations.');
+      return;
+    }
 
     bool allConfirmed = confirmations.values.every((confirmed) => confirmed);
     if (!allConfirmed) {

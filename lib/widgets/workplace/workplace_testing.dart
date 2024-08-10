@@ -85,7 +85,7 @@ class TestingManager {
     if (activeChannels.containsKey(workplaceId)) {
       final stopData = {
         "data": [
-          [0],
+          [0,2,3],
           [0,0,0]
         ]
       };
@@ -93,21 +93,25 @@ class TestingManager {
       for (var channel in activeChannels[workplaceId]!) {
         try {
           channel.sink.add(json.encode(stopData));
-          await Future.delayed(Duration(milliseconds: 100)); // Give some time for the message to be sent
+          await Future.delayed(Duration(milliseconds: 100)); // Daj čas na odoslanie správy
           await channel.sink.close();
         } catch (e) {
           print('Error sending stop signal or closing channel: $e');
         }
       }
-      activeChannels[workplaceId]!.clear();
+      // Po uzavretí všetkých kanálov vymaž všetky záznamy pre dané workplaceId
+      activeChannels.remove(workplaceId);
+    } else {
+      print('No active channels found for $workplaceId to stop.');
     }
   }
 
-  bool isValidIpAddress(String ipAddress) {
-    try {
-      return InternetAddress.tryParse(ipAddress) != null;
-    } catch (e) {
-      return false;
-    }
+
+}
+bool isValidIpAddress(String ipAddress) {
+  try {
+    return InternetAddress.tryParse(ipAddress) != null;
+  } catch (e) {
+    return false;
   }
 }
