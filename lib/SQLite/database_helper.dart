@@ -231,19 +231,37 @@ class DatabaseHelper {
     return await db.insert('work_data', task.toMap());
   }
 
-  Future<List<Task>> getNewTasks() async {
+  // Future<List<Task>> getNewTasks(String workplace) async {
+  //   final db = await database;
+  //   final List<Map<String, dynamic>> maps = await db.query(
+  //     'work_data',
+  //     where: 'status = ?',
+  //     whereArgs: ['NEW'],
+  //   );
+  //
+  //   return List.generate(maps.length, (i) {
+  //     return Task.fromMap(maps[i]);
+  //   });
+  // }
+  Future<List<Task>> getNewTasks(String workplace) async {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'work_data',
-      where: 'status = ?',
-      whereArgs: ['NEW'],
+      where: 'workstation_created = ?',
+      whereArgs: [workplace],
+      orderBy:  "id DESC",
+      limit: 1,
     );
 
-    return List.generate(maps.length, (i) {
-      return Task.fromMap(maps[i]);
-    });
-  }
+    if (maps.isNotEmpty) {
+      final latestTask = Task.fromMap(maps.first);
+      if (latestTask.status == 'NEW') {
+        return [latestTask];
+      }
+    }
 
+    return []; // Return empty list if no NEW task found
+  }
   Future<int> updateTask(Task task) async {
     final db = await database;
     return await db.update(

@@ -42,6 +42,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'Services/jsonTaskService.dart';
 import 'Services/task_services.dart';
 
 late IOSink _logFile;
@@ -104,8 +105,9 @@ Future<Widget> _buildApp() async {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
-  final databaseHelper = DatabaseHelper();
-  final taskService = TaskService(databaseHelper);
+ // final databaseHelper = DatabaseHelper();
+  //final taskService = TaskService(databaseHelper);
+  //final jsonTaskService = JsonTaskSynchronizer(databaseHelper);
 
   print('Application started');
   print('Database and services initialized');
@@ -113,19 +115,20 @@ Future<Widget> _buildApp() async {
   try {
     // taskService.synchronizeJsonWithDatabase();
   //   taskService.processNewTasks();
+
     print('Tasks synchronized and processed');
   } catch (e, stackTrace) {
     print('Error processing tasks: $e');
     print('Stack trace: $stackTrace');
   }
-  return MyApp(taskService: taskService);
+  return MyApp();
 
 }
 
 class MyApp extends StatelessWidget {
-  final TaskService taskService;
 
-  const MyApp({Key? key, required this.taskService}) : super(key: key);
+
+  const MyApp({Key? key, }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {

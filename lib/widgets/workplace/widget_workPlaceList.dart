@@ -32,6 +32,8 @@ class _WorkplaceListState extends State<WorkplaceList> {
   Map<String, Function> _learningCallbacks = {};
   late final TaskService _taskService;
   Map<String, bool> _checkedWorkplaces = {};
+  Map<String, bool> _syncLoopRunning = {};
+
 
   @override
   void initState() {
@@ -40,7 +42,45 @@ class _WorkplaceListState extends State<WorkplaceList> {
     _taskService = TaskService(_databaseHelper);
     _loadWorkplaces();
     _loadCheckedWorkplaces();
+
   }
+
+  void _startSyncLoops() {
+    List<String> checkedWorkplaceIds = getCheckedWorkplaceIds();
+    print('Starting sync loops for workplaces: $checkedWorkplaceIds');
+
+    for (String workplaceId in checkedWorkplaceIds) {
+      if (!_syncLoopRunning.containsKey(workplaceId) || !_syncLoopRunning[workplaceId]!) {
+        print('Starting sync loop for workplace: $workplaceId');
+        _startSyncLoopForWorkplace(workplaceId);
+      }
+    }
+
+    // Stop sync loops for unchecked workplaces
+    _syncLoopRunning.keys.where((id) => !checkedWorkplaceIds.contains(id)).forEach((id) {
+      print('Stopping sync loop for workplace: $id');
+      _syncLoopRunning[id] = false;
+    });
+  }
+
+
+
+
+
+  Future<void> _startSyncLoopForWorkplace(String workplaceId) async {
+    _syncLoopRunning[workplaceId] = true;
+    while (_syncLoopRunning[workplaceId]! && mounted) {
+      await jsonTaskSynchronizer.synchronizeJsonWithDatabase(workplaceId);
+      if(!_taskService.isBolocked!){ _taskService.processNewTasks(workplaceId);}
+
+      await Future.delayed(Duration(seconds: 1));
+    }
+  }
+
+
+
+
+
 
   Future<void> _loadWorkplaces() async {
     final results = await _databaseHelper.getWorkplaces();
@@ -49,7 +89,6 @@ class _WorkplaceListState extends State<WorkplaceList> {
     });
     _loadCheckedWorkplaces();
   }
-
   Future<void> _loadCheckedWorkplaces() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -58,12 +97,35 @@ class _WorkplaceListState extends State<WorkplaceList> {
         _checkedWorkplaces[workplaceId] = prefs.getBool(workplaceId) ?? false;
       }
     });
+    _startSyncLoops();
   }
+// Možnosť pracovania súčasne s viacerími checkbox
+  // Future<void> _saveCheckedWorkplace(String workplaceId, bool isChecked) async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   await prefs.setBool(workplaceId, isChecked);
+  //   _startSyncLoops();
+  // }
 
+
+  // iba jeden aktívny chackbox
   Future<void> _saveCheckedWorkplace(String workplaceId, bool isChecked) async {
     final prefs = await SharedPreferences.getInstance();
+    if (isChecked) {
+      // Ak je nový checkbox zaškrtnutý, odškrtneme všetky ostatné
+      _checkedWorkplaces.forEach((key, value) {
+        if (key != workplaceId) {
+          _checkedWorkplaces[key] = false;
+          prefs.setBool(key, false);
+        }
+      });
+    }
     await prefs.setBool(workplaceId, isChecked);
+    _startSyncLoops();
   }
+
+
+
+
 
   void _cleanupLearningCallbacks() {
     for (var callback in _learningCallbacks.values) {
@@ -142,14 +204,14 @@ class _WorkplaceListState extends State<WorkplaceList> {
                 return;
               }
 
-              for (String workplaceId in checkedWorkplaceIds) {
-                await jsonTaskSynchronizer.synchronizeJsonWithDatabase(workplaceId);
-                await _taskService.processNewTasks(workplaceId);
-              }
+              // for (String workplaceId in checkedWorkplaceIds) {
+              //   await jsonTaskSynchronizer.synchronizeJsonWithDatabase(workplaceId);
+              //   await _taskService.processNewTasks(workplaceId);
+              // }
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Tasks synchronized and processed for selected workplaces')),
-              );
+              // ScaffoldMessenger.of(context).showSnackBar(
+              //   SnackBar(content: Text('Tasks synchronized and processed for selected workplaces')),
+              // );
             },
             child: Text("Online - Sync & Process"),
           ),
@@ -267,6 +329,7 @@ class _WorkplaceListState extends State<WorkplaceList> {
   @override
   void dispose() {
     _cleanupLearningCallbacks();
+    _syncLoopRunning.forEach((key, value) => _syncLoopRunning[key] = false);
     super.dispose();
   }
 }

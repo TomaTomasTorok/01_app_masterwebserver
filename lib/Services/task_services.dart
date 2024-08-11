@@ -14,6 +14,7 @@ class TaskService {
   List<ProductDataProcessor> processors = []; // Zoznam na uloženie všetkých procesorov
   bool isStopTask=false;
    Task? finishedTask=null;
+  bool isBolocked = false;
 
   late ProductDataProcessor processor;
   TaskService(this._databaseHelper) {
@@ -27,15 +28,18 @@ class TaskService {
 
   Future<void> cancelProcessor(String workplace) async {
    // isStopTask=true;
+    try{
     for (var processor in processors) {
       processor.isCancel = true;
       print("Processor stopped for product: ${processor.productName}");
     }
-    stopProcessing(workplace ,_databaseHelper);
+    await  stopProcessing(workplace ,_databaseHelper);
     if(finishedTask != null){
     finishedTask!.status = 'Done';
     finishedTask!.workstationProcessed = 'Manual Done';
     await _databaseHelper.updateTask(finishedTask!);}
+  }
+    catch(e){print(e);}
   }
 
   Future<void> stopProcessing( String workplaceId, DatabaseHelper databaseHelper) async {
@@ -85,38 +89,49 @@ class TaskService {
 
   Future<void> processNewTasks(String workplace) async {
     try {
-      final newTasks = await _databaseHelper.getNewTasks();
+      isBolocked= true;
+      final newTasks = await _databaseHelper.getNewTasks(workplace);
+     if (newTasks.isNotEmpty){
+       await cancelProcessor(workplace);
+       print("Ukončené ulohy nový task");
+            }
+     else{isBolocked= false;}
       for (var task in newTasks) {
-        if(!isStopTask){
+
         final productExists = await _databaseHelper.productExists(task.product, workplace);
         if (productExists) {
           try {
-          //  await processProductData(task.product, 'ff');
+            task.status = 'Ongoing';
+            await _databaseHelper.updateTask(task);
             // Tu vytvoríme objekt ProductDataProcessor a použijeme ho na spracovanie úlohy
             finishedTask=task;
+            isBolocked= false;
              processor = ProductDataProcessor(task.product, workplace, _databaseHelper);
             processors.add(processor); // Pridáme processor do zoznamu
-             await processor.processProductData();
+            await processor.processProductData();
             finishedTask=null;
             task.status = 'DONE';
             await _databaseHelper.updateTask(task);
             print('Task processed successfully: ${task.product}');
           } catch (e) {
+            isBolocked= false;
             print('Error processing task: ${task.product}. Error: $e');
             finishedTask=null;
             task.status = 'ERROR';
             await _databaseHelper.updateTask(task);
           }
         } else {
+          isBolocked= false;
           print('Product ${task.product} does not exist in product_data for workplace ff');
           finishedTask=null;
-          task.status = 'INVALID';
-          await _databaseHelper.updateTask(task);
+        //  task.status = 'INVALID';
+        //  await _databaseHelper.updateTask(task);
         }
-      }
-      else{print("cancellll");}
+
+
       }
     } catch (e) {
+      isBolocked= false;
       print('Error processing new tasks: $e');
     }
   }
