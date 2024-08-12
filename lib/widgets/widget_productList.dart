@@ -3,14 +3,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../SQLite/database_helper.dart';
+import '../model/task.dart';
 import './processProductData.dart';
 import './widget_productForm.dart'; // Uistite sa, že máte správny import pre ProductForm
 
 class ProductList extends StatefulWidget {
   final String workplaceId;
 
+  final DatabaseHelper databaseHelper;
 
-  ProductList({required this.workplaceId});
+  ProductList({required this.workplaceId,  required this.databaseHelper,});
 
   @override
   _ProductListState createState() => _ProductListState();
@@ -62,7 +64,21 @@ class _ProductListState extends State<ProductList> {
     // );
 
     try {
-      await processProductData(productName, widget.workplaceId);
+   //   await processProductData(productName, widget.workplaceId);
+      Future<void> generateFakeData() async {
+
+          final task = Task(
+            product: productName,
+            forWorkstation: widget.workplaceId,
+            timestampCreated: DateTime.now().toUtc(),
+            status: 'NEW',
+          );
+          await widget.databaseHelper.insertTask(task);
+
+        print('Generated  CALL tasks for workplace $widget.workplace');
+      }
+      await generateFakeData();
+
 
       if (!mounted) return;
 

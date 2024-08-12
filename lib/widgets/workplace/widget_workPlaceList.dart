@@ -71,7 +71,7 @@ class _WorkplaceListState extends State<WorkplaceList> {
     _syncLoopRunning[workplaceId] = true;
     while (_syncLoopRunning[workplaceId]! && mounted) {
       await jsonTaskSynchronizer.synchronizeJsonWithDatabase(workplaceId);
-      if(!_taskService.isBolocked!){ _taskService.processNewTasks(workplaceId);}
+      if(!_taskService.isBlocked!){ _taskService.processNewTasks(workplaceId);}
 
       await Future.delayed(Duration(seconds: 1));
     }
@@ -301,6 +301,7 @@ class _WorkplaceListState extends State<WorkplaceList> {
                 _saveCheckedWorkplace(workplace['workplace_id'], value ?? false);
               });
             },
+             processNewTasks: _taskService.processNewTasks,
           );
         },
       ),
@@ -337,6 +338,8 @@ class AlternatingColorListTile extends StatefulWidget {
   final VoidCallback onLearningStart;
   final bool isChecked;
   final ValueChanged<bool?> onCheckboxChanged;
+  final Function(String) processNewTasks;
+
 
   const AlternatingColorListTile({
     Key? key,
@@ -349,6 +352,7 @@ class AlternatingColorListTile extends StatefulWidget {
     required this.onLearningStart,
     required this.isChecked,
     required this.onCheckboxChanged,
+    required this.processNewTasks,
   }) : super(key: key);
 
   @override
@@ -390,7 +394,7 @@ class _AlternatingColorListTileState extends State<AlternatingColorListTile> {
                   MaterialPageRoute(
                     builder: (context) => MasterIPList(
                       workplaceId: widget.workplace['workplace_id'],
-                      workplaceName: widget.workplace['workplace_id'],
+
                     ),
                   ),
                 );
@@ -441,6 +445,7 @@ class _AlternatingColorListTileState extends State<AlternatingColorListTile> {
                     builder: (context) => ProductList(
                       workplaceId: widget.workplace['workplace_id'],
 
+                      databaseHelper: widget.databaseHelper,
                     ),
                   ),
                 );

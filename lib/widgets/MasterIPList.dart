@@ -3,9 +3,10 @@ import '../SQLite/database_helper.dart';
 
 class MasterIPList extends StatefulWidget {
   final String workplaceId;
-  final String workplaceName;
 
-  MasterIPList({required this.workplaceId, required this.workplaceName});
+
+
+  MasterIPList({required this.workplaceId});
 
   @override
   _MasterIPListState createState() => _MasterIPListState();
@@ -41,7 +42,7 @@ class _MasterIPListState extends State<MasterIPList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Master IP List for ${widget.workplaceName}"),
+        title: Text("Master IP List for ${widget.workplaceId}"),
       ),
       body: Column(
         children: <Widget>[
