@@ -8,9 +8,9 @@ import './widget_productForm.dart'; // Uistite sa, že máte správny import pre
 
 class ProductList extends StatefulWidget {
   final String workplaceId;
-  final String workplaceName;
 
-  ProductList({required this.workplaceId, required this.workplaceName});
+
+  ProductList({required this.workplaceId});
 
   @override
   _ProductListState createState() => _ProductListState();
@@ -50,16 +50,16 @@ class _ProductListState extends State<ProductList> {
     }
 
     // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return WillPopScope(
-          onWillPop: () async => false,
-          child: Center(child: CircularProgressIndicator()),
-        );
-      },
-    );
+    // showDialog(
+    //   context: context,
+    //   barrierDismissible: false,
+    //   builder: (BuildContext context) {
+    //     return WillPopScope(
+    //       onWillPop: () async => false,
+    //       child: Center(child: CircularProgressIndicator()),
+    //     );
+    //   },
+    // );
 
     try {
       await processProductData(productName, widget.workplaceId);
@@ -136,7 +136,7 @@ class _ProductListState extends State<ProductList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Product List for ${widget.workplaceName}"),
+        title: Text("Product List for ${widget.workplaceId}"),
       ),
       body: Column(
         children: <Widget>[

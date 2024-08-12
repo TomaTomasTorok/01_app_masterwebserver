@@ -247,7 +247,7 @@ class DatabaseHelper {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
       'work_data',
-      where: 'workstation_created = ?',
+      where: 'for_workstation = ?',
       whereArgs: [workplace],
       orderBy:  "id DESC",
       limit: 1,

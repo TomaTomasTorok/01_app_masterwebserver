@@ -3,7 +3,7 @@ import 'dart:convert';
 class Task {
   int? id;
   final String product;
-  final String workstationCreated;
+  final String forWorkstation;
   final DateTime timestampCreated;
   String? workstationProcessed;
   DateTime? timestampProcessed;
@@ -12,7 +12,7 @@ class Task {
   Task({
     this.id,
     required this.product,
-    required this.workstationCreated,
+    required this.forWorkstation,
     required this.timestampCreated,
     this.workstationProcessed,
     this.timestampProcessed,
@@ -23,7 +23,7 @@ class Task {
     return {
       'id': id,
       'product': product,
-      'workstation_created': workstationCreated,
+      'for_workstation': forWorkstation,
       'timestamp_created': timestampCreated.toIso8601String(),
       'workstation_processed': workstationProcessed,
       'timestamp_processed': timestampProcessed?.toIso8601String(),
@@ -35,7 +35,7 @@ class Task {
     return Task(
       id: map['id'],
       product: map['product'] ?? '',
-      workstationCreated: map['workstation_created'] ?? '',
+      forWorkstation: map['for_workstation'] ?? '',
       timestampCreated: map['timestamp_created'] != null
           ? DateTime.parse(map['timestamp_created'])
           : DateTime.now(),

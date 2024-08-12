@@ -15,6 +15,8 @@ class TaskService {
   bool isStopTask=false;
    Task? finishedTask=null;
   bool isBolocked = false;
+  DateTime now = DateTime.now();
+
 
   late ProductDataProcessor processor;
   TaskService(this._databaseHelper) {
@@ -32,12 +34,15 @@ class TaskService {
     for (var processor in processors) {
       processor.isCancel = true;
       print("Processor stopped for product: ${processor.productName}");
+
     }
     await  stopProcessing(workplace ,_databaseHelper);
     if(finishedTask != null){
     finishedTask!.status = 'Done';
     finishedTask!.workstationProcessed = 'Manual Done';
+    finishedTask!.timestampProcessed=now.toUtc();
     await _databaseHelper.updateTask(finishedTask!);}
+    processors.clear();
   }
     catch(e){print(e);}
   }
@@ -111,7 +116,10 @@ class TaskService {
             await processor.processProductData();
             finishedTask=null;
             task.status = 'DONE';
+            task.workstationProcessed= workplace;
+            task.timestampProcessed=now.toUtc();
             await _databaseHelper.updateTask(task);
+            processors.remove(processor);
             print('Task processed successfully: ${task.product}');
           } catch (e) {
             isBolocked= false;

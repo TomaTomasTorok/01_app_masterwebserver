@@ -234,13 +234,6 @@ class _WorkplaceListState extends State<WorkplaceList> {
               );
             },
 
-
-            // onPressed: () async {
-            //   _taskService.cancelProcessor();
-            //   ScaffoldMessenger.of(context).showSnackBar(
-            //     SnackBar(content: Text('Tasks stopped')),
-            //   );
-            // },
             child: Text("Finish"),
           ),
           IconButton(
@@ -447,7 +440,7 @@ class _AlternatingColorListTileState extends State<AlternatingColorListTile> {
                   MaterialPageRoute(
                     builder: (context) => ProductList(
                       workplaceId: widget.workplace['workplace_id'],
-                      workplaceName: widget.workplace['workplace_id'],
+
                     ),
                   ),
                 );
