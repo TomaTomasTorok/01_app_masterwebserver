@@ -135,6 +135,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Demo',
       theme: ThemeData(
+         appBarTheme: AppBarTheme(
+             titleTextStyle:TextStyle(
+               fontFamily: 'Courier', // Tu môžeš použiť jeden z preddefinovaných fontov
+               fontSize: 25,
+               fontWeight: FontWeight.bold,
+               fontStyle: FontStyle.italic, // Pridanie kurzívy
+               color: Colors.black, // Farba textu
+             ),
+
+         ),
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),

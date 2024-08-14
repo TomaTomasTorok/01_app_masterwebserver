@@ -51,6 +51,10 @@ class _MasterIPListState extends State<MasterIPList> {
             child: TextField(
               controller: _controller,
               decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                  borderSide: BorderSide(color: Colors.blue, width: 2.0),
+                ),
                 labelText: "Enter Master IP",
                 suffixIcon: IconButton(
                   icon: Icon(Icons.add),
@@ -65,8 +69,38 @@ class _MasterIPListState extends State<MasterIPList> {
               itemCount: masterIPs.length,
               itemBuilder: (context, index) {
                 final masterIP = masterIPs[index];
-                return ListTile(
-                  title: Text('Master IP: ${masterIP['master_ip']}'),
+                return Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: ListTile(
+                    leading: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.black54,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+
+                      ],
+                    ),
+                    title: Text(
+                      'Master IP: ${masterIP['master_ip']}',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      'Details: ${masterIP['details'] ?? 'No details available'}',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+
+
+                  ),
                 );
               },
             ),

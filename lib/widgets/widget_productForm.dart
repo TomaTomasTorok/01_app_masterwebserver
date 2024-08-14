@@ -222,6 +222,13 @@ class _ProductFormState extends State<ProductForm> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+        icon: Icon(Icons.arrow_back),
+    onPressed: () async {
+     _finishLearn;
+    Navigator.of(context).pop();
+    },),
+
         title: Text("Sensors for ${widget.product['product']} in ${widget.workplace}"),
         actions: [
           if (widget.isLearningMode && _showFinishLearnButton)
@@ -238,11 +245,41 @@ class _ProductFormState extends State<ProductForm> {
         itemCount: _items.length,
         itemBuilder: (context, index) {
           final item = _items[index];
-          return ListTile(
-            title: Text('Slave: ${item['slave']}, Sensor: ${item['sensor']}'),
-            subtitle: Text('Sequence: ${item['sequence']}, Type: ${item['sensor_type']}, Value: ${item['sensor_value']}'),
-            onTap: () => _showAddOrEditItemDialog(item: item),
-          );
+          return
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: ListTile(
+                leading: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${index + 1}', // Index záznamu, pripočíta sa 1, pretože index začína od 0
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    SizedBox(width: 8), // Medzera medzi číslom a ikonou
+                    Icon(Icons.sensors, color: Colors.greenAccent),
+                  ],
+                ),
+                title: Text(
+                  'Slave: ${item['slave']}, Sensor: ${item['sensor']}',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text('Sequence: ${item['sequence']}, Type: ${item['sensor_type']}, Value: ${item['sensor_value']}'),
+                onTap: () => _showAddOrEditItemDialog(item: item),
+              ),
+            );
+
+
+
+
+
         },
       ),
       floatingActionButton: FloatingActionButton(

@@ -195,6 +195,10 @@ class _WorkplaceListState extends State<WorkplaceList> {
           //   child: Text("Online - Sync & Process"),
           // ),
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFF60C871), // Nastavenie farby pozadia na zelenú
+              foregroundColor: Colors.white, // Nastavenie farby textu na bielu
+            ),
             onPressed: () async {
               List<String> checkedWorkplaceIds = getCheckedWorkplaceIds();
               if (checkedWorkplaceIds.isEmpty) {
@@ -215,6 +219,7 @@ class _WorkplaceListState extends State<WorkplaceList> {
             },
             child: Text("Online - Sync & Process"),
           ),
+          Container(width: 20),
           ElevatedButton(
             onPressed: () async {
               List<String> checkedWorkplaceIds = getCheckedWorkplaceIds();
@@ -236,6 +241,7 @@ class _WorkplaceListState extends State<WorkplaceList> {
 
             child: Text("Finish"),
           ),
+          Container(width: 500,),
           IconButton(
             icon: Icon(Icons.assessment),
             onPressed: () async {
@@ -280,30 +286,43 @@ class _WorkplaceListState extends State<WorkplaceList> {
               );
             },
           ),
+          Container(width: 10,),
         ],
       ),
-      body: ListView.builder(
-        itemCount: workplaces.length,
-        itemBuilder: (context, index) {
-          final workplace = workplaces[index];
-          return AlternatingColorListTile(
-            workplace: workplace,
-            index: index,
-            databaseHelper: _databaseHelper,
-            testingManager: _testingManager,
-            onRefresh: _loadWorkplaces,
-            onTestingToggle: () => setState(() {}),
-            onLearningStart: () => _startLearning(workplace['workplace_id']),
-            isChecked: _checkedWorkplaces[workplace['workplace_id']] ?? false,
-            onCheckboxChanged: (bool? value) {
-              setState(() {
-                _checkedWorkplaces[workplace['workplace_id']] = value ?? false;
-                _saveCheckedWorkplace(workplace['workplace_id'], value ?? false);
-              });
-            },
-             processNewTasks: _taskService.processNewTasks,
-          );
-        },
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity, // Zaberie celú šírku rodiča
+            height: 5.0, // Hrúbka čiary
+            color: Colors.grey, // Farba čiary
+          ),
+          Container(height: 10,),
+          Expanded(
+            child: ListView.builder(
+              itemCount: workplaces.length,
+              itemBuilder: (context, index) {
+                final workplace = workplaces[index];
+                return AlternatingColorListTile(
+                  workplace: workplace,
+                  index: index,
+                  databaseHelper: _databaseHelper,
+                  testingManager: _testingManager,
+                  onRefresh: _loadWorkplaces,
+                  onTestingToggle: () => setState(() {}),
+                  onLearningStart: () => _startLearning(workplace['workplace_id']),
+                  isChecked: _checkedWorkplaces[workplace['workplace_id']] ?? false,
+                  onCheckboxChanged: (bool? value) {
+                    setState(() {
+                      _checkedWorkplaces[workplace['workplace_id']] = value ?? false;
+                      _saveCheckedWorkplace(workplace['workplace_id'], value ?? false);
+                    });
+                  },
+                   processNewTasks: _taskService.processNewTasks,
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => showAddWorkplaceDialog(context, _databaseHelper, _loadWorkplaces),

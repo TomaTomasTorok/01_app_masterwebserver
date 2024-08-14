@@ -147,6 +147,37 @@ class _ProductListState extends State<ProductList> {
       ),
     ).then((_) => _loadProducts());
   }
+  Future<void> _deleteProduct(String productName) async {
+    await widget.databaseHelper.deleteProduct(productName, widget.workplaceId);
+    _loadProducts();
+  }
+  void _showDeleteConfirmation(String productName) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Delete Product'),
+          content: Text('Are you sure you want to delete $productName?'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Delete'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteProduct(productName);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -161,6 +192,10 @@ class _ProductListState extends State<ProductList> {
             child: TextField(
               controller: _controller,
               decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                  borderSide: BorderSide(color: Colors.blue, width: 2.0),
+                ),
                 labelText: "Enter Product Name",
                 suffixIcon: IconButton(
                   icon: Icon(Icons.add),
@@ -175,14 +210,103 @@ class _ProductListState extends State<ProductList> {
               itemCount: products.length,
               itemBuilder: (context, index) {
                 final product = products[index];
-                return ListTile(
-                  title: Text('Product: ${product['product']}'),
-                  trailing: ElevatedButton(
-                    child: Text('Call'),
+                return Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: ListTile(
+                    leading: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${index + 1}', // Index záznamu, pripočíta sa 1, pretože index začína od 0
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.black54,
+                          ),
+                        ),
+                        SizedBox(width: 8), // Medzera medzi číslom a ikonou
+
+                      ],
+                    ),
+                    title: Text(
+                      'Product: ${product['product']}',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(
+                      'Details: ${product['details']}',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                    // trailing: ElevatedButton(
+                    //   style: ElevatedButton.styleFrom(
+                    //     elevation: 6, // Zvýšená hodnota pre výraznejší vystúpený efekt
+                    //     primary: Colors.greenAccent, // Farba pozadia tlačidla
+                    //     shape: RoundedRectangleBorder(
+                    //       borderRadius: BorderRadius.circular(8),
+                    //     ),
+                    //     shadowColor: Colors.green.withOpacity(0.4), // Jemný tieň pre vystúpený efekt
+                    //   ),
+                    //   child: Text(
+                    //     'Call',
+                    //     style: TextStyle(
+                    //       color: Colors.white,
+                    //       fontWeight: FontWeight.bold,
+                    //     ),
+                    //   ),
+                    //   onPressed: () => handleCall(product['product']),
+                    // ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                    ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                    elevation: 4,
+                      primary: Colors.greenAccent,
+                      onPrimary: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      shadowColor: Colors.black.withOpacity(0.95),
+                    ),
+                    child: Text(
+                      'Call',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     onPressed: () => handleCall(product['product']),
                   ),
-                  onTap: () => _openProductForm(product),
-                );
+                        SizedBox(width: 28),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      elevation: 4,
+                      primary: Colors.redAccent,
+                      onPrimary: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      shadowColor: Colors.black.withOpacity(0.95),
+                    ),
+                    child: Text(
+                      'Delete',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    onPressed: () => _showDeleteConfirmation(product['product']),
+                  ),
+                      ],
+                    ),
+
+
+
+                    onTap: () => _openProductForm(product),
+                  ),
+                )
+                ;
+
               },
             ),
           ),
