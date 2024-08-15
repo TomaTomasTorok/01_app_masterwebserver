@@ -57,7 +57,8 @@ Future<Function> handleLearning(BuildContext context, String workplaceId, Databa
         print('Error connecting to WebSocket for ${masterIP['master_ip']}: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Connection error with ${masterIP['master_ip']}: $e')),
-        );
+
+        );  return () {};
       }
     }
 
