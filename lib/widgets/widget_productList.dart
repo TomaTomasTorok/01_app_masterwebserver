@@ -263,8 +263,8 @@ class _ProductListState extends State<ProductList> {
                     ElevatedButton(
                     style: ElevatedButton.styleFrom(
                     elevation: 4,
-                      primary: Colors.greenAccent,
-                      onPrimary: Colors.white,
+                      backgroundColor: Colors.greenAccent,
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -282,8 +282,8 @@ class _ProductListState extends State<ProductList> {
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       elevation: 4,
-                      primary: Colors.redAccent,
-                      onPrimary: Colors.white,
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),

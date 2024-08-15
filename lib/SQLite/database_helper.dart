@@ -211,7 +211,14 @@ class DatabaseHelper {
     );
   }
 
-
+  Future<int> deleteSensor( int sensorId) async {
+    final db = await database;
+    return await db.delete(
+      'product_data',
+      where: ' id = ?',
+      whereArgs: [sensorId],
+    );
+  }
 
 
 

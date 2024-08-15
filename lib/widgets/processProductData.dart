@@ -161,7 +161,7 @@ class ProductDataProcessor {
         _sendDataToMasterIP(masterIP, sequenceData[masterIP]!);
       }
 
-      print('Waiting for confirmations for sequence $sequence...');
+    //  print('Waiting for confirmations for sequence $sequence...');
       try {
         await _waitForConfirmations(confirmations);
         print('Sequence $sequence completed. All confirmations received.');
@@ -180,7 +180,7 @@ class ProductDataProcessor {
     }
 
     try {
-      print('Formatting data for $masterIP. ${data.length} items to send.');
+     // print('Formatting data for $masterIP. ${data.length} items to send.');
       var formattedData = [
         [0],
         ...data.map((item) => [item['slave'], item['sequence'], item['sensor']])
@@ -208,7 +208,7 @@ class ProductDataProcessor {
           return;
         }
 
-        print('Processing message from $masterIP: $message');
+      //  print('Processing message from $masterIP: $message');
         if (message.toString().trim().toLowerCase() == 'master:hotovo' ||
             message.toString().trim().toLowerCase() == 'master: hotovo') {
           confirmations[masterIP] = true;

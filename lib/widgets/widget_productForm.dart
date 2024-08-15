@@ -38,6 +38,39 @@ class _ProductFormState extends State<ProductForm> {
       _initializeWebSocket();
     }
   }
+  Future<void> _deleteProduct(int sensorId) async {
+    await _databaseHelper.deleteSensor(sensorId, );
+    _loadProductData();
+  }
+  void _showDeleteConfirmation(int sensorId) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Delete Sensor'),
+          content: Text('Are you sure you want to delete Sensor?'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Delete'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteProduct(sensorId);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+
 
   @override
   void dispose() {
@@ -224,9 +257,11 @@ class _ProductFormState extends State<ProductForm> {
       appBar: AppBar(
         leading: IconButton(
         icon: Icon(Icons.arrow_back),
-    onPressed: () async {
-     _finishLearn;
-    Navigator.of(context).pop();
+    onPressed: ()  async {
+      if (widget.isLearningMode && _showFinishLearnButton){
+       await   _finishLearn();
+       Navigator.of(context).pop();}
+  else{  Navigator.of(context).pop();}
     },),
 
         title: Text("Sensors for ${widget.product['product']} in ${widget.workplace}"),
@@ -273,6 +308,33 @@ class _ProductFormState extends State<ProductForm> {
                 ),
                 subtitle: Text('Sequence: ${item['sequence']}, Type: ${item['sensor_type']}, Value: ${item['sensor_value']}'),
                 onTap: () => _showAddOrEditItemDialog(item: item),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+
+                      SizedBox(width: 28),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          elevation: 4,
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          shadowColor: Colors.black.withOpacity(0.95),
+                        ),
+                        child: Text(
+                          'Delete',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        onPressed: () => {
+
+                            _showDeleteConfirmation(item['id'].toInt())}
+                      ),
+                    ],
+                  ),
               ),
             );
 

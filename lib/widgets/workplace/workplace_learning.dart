@@ -29,6 +29,25 @@ Future<Function> handleLearning(BuildContext context, String workplaceId, Databa
       ]
     };
 
+    // Zobrazenie prekrytia načítavania
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return WillPopScope(
+          onWillPop: () async => false,
+          child: Container(
+            color: Colors.black.withOpacity(0.5),
+            child: Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+        );
+      },
+    );
+
+    bool hasError = false;
+
     for (var masterIP in masterIPs) {
       try {
         final uri = Uri.parse('ws://${masterIP['master_ip']}:81');
@@ -40,7 +59,7 @@ Future<Function> handleLearning(BuildContext context, String workplaceId, Databa
         channel.stream.listen(
               (message) async {
             try {
-              print('Received message from ${masterIP['master_ip']}: $message');
+           //   print('Received message from ${masterIP['master_ip']}: $message');
               await processAndSaveResponse(databaseHelper, workplaceId, productName, masterIP['master_ip'], message.toString());
               NotificationService.notify('new_sensor_added');
             } catch (e) {
@@ -58,7 +77,16 @@ Future<Function> handleLearning(BuildContext context, String workplaceId, Databa
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Connection error with ${masterIP['master_ip']}: $e')),
         );
+        hasError = true;
+        break;  // Prerušíme cyklus pri prvej chybe
       }
+    }
+
+    // Odstránenie prekrytia načítavania
+    Navigator.of(context).pop();
+
+    if (hasError) {
+      return () {};  // Vrátime prázdnu funkciu v prípade chyby
     }
 
     void onFinishLearning() {
@@ -96,6 +124,8 @@ Future<Function> handleLearning(BuildContext context, String workplaceId, Databa
       }
     };
   } catch (e) {
+    // Odstránenie prekrytia načítavania v prípade chyby
+    Navigator.of(context).pop();
     print('Unhandled error in handleLearning: $e');
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An unexpected error occurred: $e')));
     return () {};

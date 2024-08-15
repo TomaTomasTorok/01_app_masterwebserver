@@ -59,7 +59,7 @@ class TestingManager {
 
           channel.stream.listen(
                 (message) {
-              print('Received message from ${masterIP['master_ip']}: $message');
+         //     print('Received message from ${masterIP['master_ip']}: $message');
               // No processing of received data
             },
             onDone: () {
@@ -78,6 +78,7 @@ class TestingManager {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An unexpected error occurred: $e')));
       }
+
     }
   }
 
