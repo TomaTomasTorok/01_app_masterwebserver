@@ -54,7 +54,14 @@ class DatabaseHelper {
       _database = null;
     }
   }
-
+  Future<int> deleteMasterIP(String workplaceId, String masterIP) async {
+    final db = await database;
+    return await db.delete(
+      'product_data',
+      where: 'workplace_id = ? AND master_ip = ?',
+      whereArgs: [workplaceId, masterIP],
+    );
+  }
   Future<void> _onCreate(Database db, int version) async {
     // Táto metóda sa volá len ak databáza ešte neexistuje
     await db.execute('''

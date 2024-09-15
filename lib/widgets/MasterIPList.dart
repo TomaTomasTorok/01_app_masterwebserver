@@ -4,8 +4,6 @@ import '../SQLite/database_helper.dart';
 class MasterIPList extends StatefulWidget {
   final String workplaceId;
 
-
-
   MasterIPList({required this.workplaceId});
 
   @override
@@ -36,6 +34,48 @@ class _MasterIPListState extends State<MasterIPList> {
       _controller.clear();
       _loadMasterIPs();
     }
+  }
+
+  Future<void> _deleteMasterIP(String masterIP) async {
+    try {
+      await _databaseHelper.deleteMasterIP(widget.workplaceId, masterIP);
+      await _loadMasterIPs();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Master IP deleted successfully')),
+      );
+    } catch (e) {
+      print('Error deleting Master IP: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete Master IP')),
+      );
+    }
+  }
+
+  void _showDeleteConfirmation(String masterIP) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Delete Master IP'),
+          content: Text('Are you sure you want to delete this Master IP?'),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text('Delete'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteMasterIP(masterIP);
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -87,7 +127,6 @@ class _MasterIPListState extends State<MasterIPList> {
                           ),
                         ),
                         SizedBox(width: 8),
-
                       ],
                     ),
                     title: Text(
@@ -98,8 +137,14 @@ class _MasterIPListState extends State<MasterIPList> {
                       'Details: ${masterIP['details'] ?? 'No details available'}',
                       style: TextStyle(color: Colors.black54),
                     ),
-
-
+                    trailing: ElevatedButton(
+                      child: Text('Delete'),
+                      style: ElevatedButton.styleFrom(
+                        primary: Colors.red,
+                        onPrimary: Colors.white,
+                      ),
+                      onPressed: () => _showDeleteConfirmation(masterIP['master_ip']),
+                    ),
                   ),
                 );
               },

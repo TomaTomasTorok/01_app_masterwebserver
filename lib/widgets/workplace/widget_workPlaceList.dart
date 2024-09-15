@@ -47,6 +47,7 @@ class _WorkplaceListState extends State<WorkplaceList> {
     _loadCheckedWorkplaces();
     //Timer pre pravidelné aktualizácie informácií o aktuálnom produkte
     _updateTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+     // widget.onRefresh();
       setState(() {
         _currentProduct = _taskService.currentProduct;
 
@@ -537,6 +538,53 @@ class _AlternatingColorListTileState extends State<AlternatingColorListTile> {
                 }
               },
             ),
+            SizedBox(width: 8),
+            SizedBox(width: 8),
+            ElevatedButton(
+              child: Text('Delete'),
+              style: ElevatedButton.styleFrom(
+                primary: Colors.red,
+                onPrimary: Colors.white,
+              ),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      title: Text('Delete Workplace'),
+                      content: Text('Are you sure you want to delete this workplace?'),
+                      actions: <Widget>[
+                        TextButton(
+                          child: Text('Cancel'),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                        TextButton(
+                          child: Text('Delete'),
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            widget.databaseHelper.deleteWorkplace(widget.workplace['workplace_id']).then((_) {
+                              widget.onRefresh();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Workplace deleted successfully')),
+                              );
+                            }).catchError((error) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Failed to delete workplace: $error')),
+                              );
+                            });
+                          },
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
+            ),
+
+
+
             SizedBox(width: 8),
             Padding(
               padding: const EdgeInsets.only(left: 35.0),
