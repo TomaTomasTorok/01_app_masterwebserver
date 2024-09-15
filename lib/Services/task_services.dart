@@ -15,7 +15,9 @@ class TaskService {
   Task? _finishedTask;
   bool isBlocked = false;
   final DateTime _now = DateTime.now();
-
+  String? _currentProduct;
+  // Getter pre aktuálny produkt
+  String? get currentProduct => _currentProduct;
   TaskService(this._databaseHelper) {
     _initJsonFilePath();
   }
@@ -42,6 +44,7 @@ class TaskService {
   void _updateFinishedTaskIfExists() {
     if (_finishedTask != null) {
       _finishedTask!.status = 'Done';
+      _currentProduct = null;
       _finishedTask!.workstationProcessed = 'Manual Done';
       _finishedTask!.timestampProcessed = _now.toUtc();
       _databaseHelper.updateTask(_finishedTask!);
@@ -59,11 +62,12 @@ class TaskService {
           [0, 0, 0]
         ]
       };
-
+      _currentProduct = null;
       for (var masterIP in masterIPs) {
         await _sendStopSignalToMasterIP(masterIP['master_ip'], data);
       }
     } catch (e) {
+      _currentProduct = null;
       print('Unhandled error in stopProcessing: $e');
     }
   }
@@ -105,6 +109,7 @@ class TaskService {
       }
     } catch (e) {
       isBlocked = false;
+      _currentProduct = null;
       print('Error processing new tasks: $e');
     }
   }
@@ -121,7 +126,7 @@ class TaskService {
       await _databaseHelper.updateTask(task);
       _finishedTask = task;
       isBlocked = false;
-
+      _currentProduct = task.product;
       final processor = ProductDataProcessor(task.product, workplace, _databaseHelper);
       _processors.add(processor);
       await processor.processProductData();
@@ -131,6 +136,7 @@ class TaskService {
       _processors.remove(processor);
       print('Task processed successfully: ${task.product}');
     } catch (e) {
+      _currentProduct = null;
       _handleTaskProcessingError(task, e);
     }
   }
@@ -138,6 +144,7 @@ class TaskService {
   void _updateTaskOnCompletion(Task task, String workplace) {
     _finishedTask = null;
     task.status = 'DONE';
+    _currentProduct = null;
     task.workstationProcessed = workplace;
     task.timestampProcessed = _now.toUtc();
     _databaseHelper.updateTask(task);
@@ -145,6 +152,7 @@ class TaskService {
 
   void _handleTaskProcessingError(Task task, dynamic error) {
     isBlocked = false;
+    _currentProduct = null;
     print('Error processing task: ${task.product}. Error: $error');
     _finishedTask = null;
     task.status = 'ERROR';

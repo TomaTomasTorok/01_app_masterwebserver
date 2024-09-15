@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:masterwebserver/widgets/workplace/workplace_learning.dart';
 import '../../SQLite/database_helper.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -167,90 +168,139 @@ class _ProductFormState extends State<ProductForm> {
     final TextEditingController sensorTypeController = TextEditingController(text: item?['sensor_type']?.toString() ?? '');
     final TextEditingController sensorValueController = TextEditingController(text: item?['sensor_value']?.toString() ?? '');
 
+    String? selectedMasterIP = item?['master_ip'] ?? widget.masterIp;
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(item == null ? "Add Sensor" : "Edit Sensor"),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: slaveController,
-                  decoration: InputDecoration(labelText: "Slave"),
-                  keyboardType: TextInputType.number,
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text(item == null ? "Add Sensor" : "Edit Sensor"),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FutureBuilder<List<Map<String, dynamic>>>(
+                      future: _databaseHelper.getMasterIPsForWorkplace(widget.workplace),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return CircularProgressIndicator();
+                        } else if (snapshot.hasError) {
+                          return Text("Error: ${snapshot.error}");
+                        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                          return Text("No Master IPs available");
+                        } else {
+                          List<String> masterIPs = snapshot.data!.map((ip) => ip['master_ip'] as String).toList();
+                          if (!masterIPs.contains(selectedMasterIP)) {
+                            selectedMasterIP = masterIPs.first;
+                          }
+                          return DropdownButtonFormField<String>(
+                            value: selectedMasterIP,
+                            decoration: InputDecoration(labelText: "Master IP"),
+                            items: masterIPs.map((String ip) {
+                              return DropdownMenuItem<String>(
+                                value: ip,
+                                child: Text(ip),
+                              );
+                            }).toList(),
+                            onChanged: (String? newValue) {
+                              setState(() {
+                                selectedMasterIP = newValue;
+                              });
+                            },
+                          );
+                        }
+                      },
+                    ),
+                    TextField(
+                      controller: slaveController,
+                      decoration: InputDecoration(labelText: "Slave"),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    ),
+                    TextField(
+                      controller: sequenceController,
+                      decoration: InputDecoration(labelText: "Sequence"),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly]
+                    ),
+                    TextField(
+                      controller: sensorController,
+                      decoration: InputDecoration(labelText: "Sensor"),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly]
+                    ),
+                    TextField(
+                      controller: sensorTypeController,
+                      decoration: InputDecoration(labelText: "Sensor Type"),
+                    ),
+                    TextField(
+                      controller: sensorValueController,
+                      decoration: InputDecoration(labelText: "Sensor Value"),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly]
+                    ),
+                  ],
                 ),
-                TextField(
-                  controller: sequenceController,
-                  decoration: InputDecoration(labelText: "Sequence"),
-                  keyboardType: TextInputType.number,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text("Cancel"),
                 ),
-                TextField(
-                  controller: sensorController,
-                  decoration: InputDecoration(labelText: "Sensor"),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: sensorTypeController,
-                  decoration: InputDecoration(labelText: "Sensor Type"),
-                ),
-                TextField(
-                  controller: sensorValueController,
-                  decoration: InputDecoration(labelText: "Sensor Value"),
-                  keyboardType: TextInputType.number,
+                TextButton(
+                  onPressed: () async {
+                    if (slaveController.text.isEmpty || sequenceController.text.isEmpty || sensorController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Slave, Sequence, and Sensor fields must be filled out.')),
+                      );
+                      return;
+                    }
+
+                    final newItem = {
+                      'workplace_id': widget.workplace,
+                      'product': widget.product['product'],
+                      'master_ip': selectedMasterIP,
+                      'slave': int.tryParse(slaveController.text) ?? 0,
+                      'sequence': int.tryParse(sequenceController.text) ?? 0,
+                      'sensor': int.tryParse(sensorController.text) ?? 0,
+                      'sensor_type': sensorTypeController.text,
+                      'sensor_value': double.tryParse(sensorValueController.text) ?? 0.0,
+                    };
+
+                    try {
+                      if (item == null) {
+                        final id = await _databaseHelper.insertProductData(newItem);
+                        setState(() {
+                          _items = [..._items, {...newItem, 'id': id}];
+                        });
+                      } else {
+                        await _databaseHelper.updateProductData(item['id'], newItem);
+                        setState(() {
+                          _items = _items.map((i) => i['id'] == item['id'] ? {...newItem, 'id': item['id']} : i).toList();
+                        });
+                      }
+                      Navigator.of(context).pop();
+                      _loadProductData(); // Reload data after adding/editing
+                    } catch (e) {
+                      print('Error saving sensor data: $e');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Failed to save sensor data')),
+                      );
+                    }
+                  },
+                  child: Text(item == null ? "Add" : "Save"),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () async {
-                final newItem = {
-                  'workplace_id': widget.workplace,
-                  'product': widget.product['product'],
-                  'master_ip': item?['master_ip'] ?? widget.masterIp,
-                  'slave': int.tryParse(slaveController.text) ?? 0,
-                  'sequence': int.tryParse(sequenceController.text) ?? 0,
-                  'sensor': int.tryParse(sensorController.text) ?? 0,
-                  'sensor_type': sensorTypeController.text,
-                  'sensor_value': double.tryParse(sensorValueController.text) ?? 0.0,
-                };
-
-                try {
-                  if (item == null) {
-                    final id = await _databaseHelper.insertProductData(newItem);
-                    setState(() {
-                      _items = [..._items, {...newItem, 'id': id}];
-                    });
-                  } else {
-                    await _databaseHelper.updateProductData(item['id'], newItem);
-                    setState(() {
-                      _items = _items.map((i) => i['id'] == item['id'] ? {...newItem, 'id': item['id']} : i).toList();
-                    });
-                  }
-                  Navigator.of(context).pop();
-                } catch (e) {
-                  print('Error saving sensor data: $e');
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to save sensor data')),
-                  );
-                }
-              },
-              child: Text(item == null ? "Add" : "Save"),
-            ),
-          ],
+            );
+          },
         );
       },
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(

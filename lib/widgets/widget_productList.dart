@@ -21,19 +21,40 @@ class ProductList extends StatefulWidget {
 class _ProductListState extends State<ProductList> {
   final DatabaseHelper _databaseHelper = DatabaseHelper();
   List<Map<String, dynamic>> products = [];
+  List<Map<String, dynamic>> _allProducts = [];
   final TextEditingController _controller = TextEditingController();
-
+  final TextEditingController _filterController = TextEditingController();
+  final FocusNode _filterFocusNode = FocusNode();
   @override
   void initState() {
     super.initState();
     _loadProducts();
+    _filterFocusNode.requestFocus();
   }
 
   Future<void> _loadProducts() async {
     final results = await _databaseHelper.getProductsForWorkplace(widget.workplaceId);
     setState(() {
-      products = results;
+      _allProducts = results;
+     // products = results;
+      products = List.from(_allProducts);
     });
+  }
+  void _filterProducts(String query) {
+    setState(() {
+      if (query.isEmpty) {
+        products = List.from(_allProducts);
+      } else {
+        products = _allProducts
+            .where((product) => product['product'].toString().toLowerCase().contains(query.toLowerCase()))
+            .toList();
+      }
+    });
+  }
+  void _handleEnterPressed() {
+    if (products.isNotEmpty) {
+      handleCall(products.first['product']);
+    }
   }
 
   void _addProduct() async {
@@ -183,28 +204,50 @@ class _ProductListState extends State<ProductList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Product List for ${widget.workplaceId}"),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text("Product List for ${widget.workplaceId}"),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: 250),
+              child: TextField(
+                controller: _controller,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(8.0)),
+                    borderSide: BorderSide(color: Colors.blue, width: 2.0),
+                  ),
+                  labelText: "New product name",
+                  suffixIcon: IconButton(
+                    icon: Icon(Icons.add),
+                    onPressed: _addProduct,
+                  ),
+                ),
+                onSubmitted: (value) => _addProduct(),
+              ),
+            ),
+          ],
+        ),
       ),
+
       body: Column(
         children: <Widget>[
           Padding(
             padding: const EdgeInsets.all(8.0),
-            child: TextField(
-              controller: _controller,
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(8.0)),
-                  borderSide: BorderSide(color: Colors.blue, width: 2.0),
+
+              child: TextField(
+                controller: _filterController,
+                focusNode: _filterFocusNode,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(),
+                  labelText: "Filter Products",
+                  suffixIcon: Icon(Icons.search),
                 ),
-                labelText: "Enter Product Name",
-                suffixIcon: IconButton(
-                  icon: Icon(Icons.add),
-                  onPressed: _addProduct,
-                ),
+                onChanged: _filterProducts,
+                onSubmitted: (_) => _handleEnterPressed(),
               ),
-              onSubmitted: (value) => _addProduct(),
             ),
-          ),
+
           Expanded(
             child: ListView.builder(
               itemCount: products.length,
@@ -318,6 +361,8 @@ class _ProductListState extends State<ProductList> {
   @override
   void dispose() {
     _controller.dispose();
+    _filterFocusNode.dispose();
+    _filterController.dispose();
     super.dispose();
   }
 }

@@ -33,7 +33,9 @@ class _WorkplaceListState extends State<WorkplaceList> {
   late final TaskService _taskService;
   Map<String, bool> _checkedWorkplaces = {};
   Map<String, bool> _syncLoopRunning = {};
+  String? _currentProduct;
 
+  Timer? _updateTimer;
 
   @override
   void initState() {
@@ -42,7 +44,13 @@ class _WorkplaceListState extends State<WorkplaceList> {
     _taskService = TaskService(_databaseHelper);
     _loadWorkplaces();
     _loadCheckedWorkplaces();
+    //Timer pre pravidelné aktualizácie informácií o aktuálnom produkte
+    _updateTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        _currentProduct = _taskService.currentProduct;
 
+      });
+    });
   }
 
   void _startSyncLoops() {
@@ -71,7 +79,10 @@ class _WorkplaceListState extends State<WorkplaceList> {
     _syncLoopRunning[workplaceId] = true;
     while (_syncLoopRunning[workplaceId]! && mounted) {
       await jsonTaskSynchronizer.synchronizeJsonWithDatabase(workplaceId);
-      if(!_taskService.isBlocked!){ _taskService.processNewTasks(workplaceId);}
+      if(!_taskService.isBlocked!){ _taskService.processNewTasks(workplaceId);
+
+
+      }
 
       await Future.delayed(Duration(seconds: 1));
     }
@@ -182,7 +193,40 @@ class _WorkplaceListState extends State<WorkplaceList> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Workplace List"),
+        // title: Text("Workplace List"),
+     title:   Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Workplace List",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            if (_currentProduct != null )
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: "Task in Progress: ", // Normálny text
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.normal,
+                      ),
+                    ),
+                    TextSpan(
+                      text: "$_currentProduct", // Tučný text pre produkt
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+          ],
+        ),
         actions: [
           // ElevatedButton(
           //   onPressed: () async {
@@ -194,6 +238,30 @@ class _WorkplaceListState extends State<WorkplaceList> {
           //   },
           //   child: Text("Online - Sync & Process"),
           // ),
+          if (_currentProduct != null )
+          ElevatedButton(
+            onPressed: () async {
+              List<String> checkedWorkplaceIds = getCheckedWorkplaceIds();
+              if (checkedWorkplaceIds.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Please select at least one workplace')),
+                );
+                return;
+              }
+
+              for (String workplaceId in checkedWorkplaceIds) {
+                _taskService.cancelProcessor(workplaceId);
+              }
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Tasks stopped')),
+              );
+            },
+
+            child: Text("Finish"),
+          ),
+
+          Container(width: 180),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: Color(0xFF60C871), // Nastavenie farby pozadia na zelenú
@@ -218,28 +286,6 @@ class _WorkplaceListState extends State<WorkplaceList> {
               // );
             },
             child: Text("Online - Sync & Process"),
-          ),
-          Container(width: 20),
-          ElevatedButton(
-            onPressed: () async {
-              List<String> checkedWorkplaceIds = getCheckedWorkplaceIds();
-              if (checkedWorkplaceIds.isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Please select at least one workplace')),
-                );
-                return;
-              }
-
-              for (String workplaceId in checkedWorkplaceIds) {
-                _taskService.cancelProcessor(workplaceId);
-              }
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Tasks stopped')),
-              );
-            },
-
-            child: Text("Finish"),
           ),
           Container(width: 500,),
           IconButton(
@@ -380,7 +426,32 @@ class AlternatingColorListTile extends StatefulWidget {
 
 class _AlternatingColorListTileState extends State<AlternatingColorListTile> {
   bool isTestingInProgress = false;
+  void _showLoadingDialog(BuildContext context, String action) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 20),
+                Text('$action in progress...'),
+              ],
+            ),
+          ),
+        );
+      },
+    );
 
+    // Automaticky zatvoriť dialog po 3 sekundách
+    Future.delayed(Duration(seconds: 3), () {
+      Navigator.of(context).pop();
+    });
+  }
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -422,7 +493,11 @@ class _AlternatingColorListTileState extends State<AlternatingColorListTile> {
             SizedBox(width: 8),
             ElevatedButton(
               child: Text('Learning'),
-              onPressed: widget.onLearningStart,
+             // onPressed: widget.onLearningStart,
+              onPressed: () {
+
+                widget.onLearningStart();
+              },
             ),
             SizedBox(width: 8),
             ElevatedButton(
@@ -433,6 +508,8 @@ class _AlternatingColorListTileState extends State<AlternatingColorListTile> {
                 ),
               ),
               onPressed: () async {
+                _showLoadingDialog(context, 'Testing');
+
                 setState(() {
                   isTestingInProgress = true;
                 });

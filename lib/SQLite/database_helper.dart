@@ -106,19 +106,19 @@ class DatabaseHelper {
       });
 
       // Kontrola a odstránenie default produktu
-      final defaultProducts = await txn.query(
-        'product_data',
-        where: 'workplace_id = ? AND product = ?',
-        whereArgs: [workplaceId, DEFAULT_PRODUCT],
-      );
+      // final defaultProducts = await txn.query(
+      //   'product_data',
+      //   where: 'workplace_id = ? AND product = ?',
+      //   whereArgs: [workplaceId, DEFAULT_PRODUCT],
+      // );
 
-      if (defaultProducts.isNotEmpty) {
-        await txn.delete(
-          'product_data',
-          where: 'workplace_id = ? AND product = ?',
-          whereArgs: [workplaceId, DEFAULT_PRODUCT],
-        );
-      }
+      // if (defaultProducts.isNotEmpty) {
+      //   await txn.delete(
+      //     'product_data',
+      //     where: 'workplace_id = ? AND product = ?',
+      //     whereArgs: [workplaceId, DEFAULT_PRODUCT],
+      //   );
+      // }
 
       return id;
     });
