@@ -7,6 +7,7 @@ import '../../Log/log_view_screan.dart';
 import '../../Log/logger.dart';
 import '../../SQLite/database_helper.dart';
 import '../../Services/jsonTaskService.dart';
+import '../../Services/path_change.dart';
 import '../../Services/task_services.dart';
 import '../../main.dart';
 import '../MasterIPList.dart';
@@ -201,6 +202,7 @@ class _WorkplaceListState extends State<WorkplaceList> {
               "Workplace List",
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
+
             if (_currentProduct != null )
               Text.rich(
                 TextSpan(
@@ -238,6 +240,10 @@ class _WorkplaceListState extends State<WorkplaceList> {
           //   },
           //   child: Text("Online - Sync & Process"),
           // ),
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () => showSettingsDialog(context),
+          ),
           if (_currentProduct != null )
           ElevatedButton(
             onPressed: () async {
@@ -532,20 +538,23 @@ class _AlternatingColorListTileState extends State<AlternatingColorListTile> {
               },
             ),
             SizedBox(width: 8),
-            ElevatedButton(
-              child: Text('Products'),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ProductList(
-                      workplaceId: widget.workplace['workplace_id'],
+            Padding(
+              padding: const EdgeInsets.only(left: 35.0),
+              child: ElevatedButton(
+                child: Text('Products'),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ProductList(
+                        workplaceId: widget.workplace['workplace_id'],
 
-                      databaseHelper: widget.databaseHelper,
+                        databaseHelper: widget.databaseHelper,
+                      ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
           ],
         ),

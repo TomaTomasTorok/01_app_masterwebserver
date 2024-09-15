@@ -30,6 +30,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:masterwebserver/widgets/workplace/widget_workPlaceList.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'Log/logger.dart';
@@ -45,9 +46,9 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'Services/jsonTaskService.dart';
 import 'Services/task_services.dart';
 
-late IOSink _logFile;
+late IOSink logFile;
 late ZoneSpecification _spec;
-late DateTime _currentLogDate;
+late DateTime currentLogDate;
 
 void main() {
   _spec = ZoneSpecification(
@@ -68,17 +69,23 @@ void main() {
   }, zoneSpecification: _spec);
 }
 
-Future<void> _initializeLogging() async {
-  final dir = await getApplicationDocumentsDirectory();
-  final logDir = Directory(p.join(dir.path, 'logs'));
-  if (!await logDir.exists()) await logDir.create();
 
-  _currentLogDate = DateTime.now();
-  final formattedDate = '${_currentLogDate.year}-${_currentLogDate.month.toString().padLeft(2, '0')}-${_currentLogDate.day.toString().padLeft(2, '0')}';
+Future<void> _initializeLogging() async {
+  final prefs = await SharedPreferences.getInstance();
+  final customLogPath = prefs.getString('log_path');
+
+  final logDir = customLogPath != null && customLogPath.isNotEmpty
+      ? Directory(customLogPath)
+      : Directory(p.join((await getApplicationDocumentsDirectory()).path, 'logs'));
+
+  if (!await logDir.exists()) await logDir.create(recursive: true);
+
+  currentLogDate = DateTime.now();
+  final formattedDate = '${currentLogDate.year}-${currentLogDate.month.toString().padLeft(2, '0')}-${currentLogDate.day.toString().padLeft(2, '0')}';
   final file = File(p.join(logDir.path, '${formattedDate}_app_log.txt'));
 
   if (!await file.exists()) await file.create();
-  _logFile = file.openWrite(mode: FileMode.append);
+  logFile = file.openWrite(mode: FileMode.append);
 
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
@@ -86,35 +93,35 @@ Future<void> _initializeLogging() async {
     _log('Stack trace: ${details.stack}');
   };
 }
-
 void _log(String message) async {
   final now = DateTime.now();
   final timestamp = now.toIso8601String();
 
-  if (now.day != _currentLogDate.day) {
-    await _logFile.close();
-    _currentLogDate = now;
+  if (now.day != currentLogDate.day) {
+    await logFile.close();
+    currentLogDate = now;
     await _initializeLogging();
   }
 
   final logLine = '$timestamp | $message';
-  _logFile.writeln(logLine);
+  logFile.writeln(logLine);
 }
 
 Future<Widget> _buildApp() async {
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
- // final databaseHelper = DatabaseHelper();
-  //final taskService = TaskService(databaseHelper);
-  //final jsonTaskService = JsonTaskSynchronizer(databaseHelper);
-
   print('Application started');
   print('Database and services initialized');
+  final prefs = await SharedPreferences.getInstance();
+  final customDbPath = prefs.getString('dbpath');
 
+  if (customDbPath != null && customDbPath.isNotEmpty) {
+    // Use the custom DB path
+    DatabaseHelper.setDatabasePath(customDbPath) ;
+
+  }
   try {
-    // taskService.synchronizeJsonWithDatabase();
-  //   taskService.processNewTasks();
 
     print('Tasks synchronized and processed');
   } catch (e, stackTrace) {
@@ -158,14 +165,19 @@ class AppLifecycleObserver extends WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached) {
       print('Application terminated');
-      _logFile.close();
+      logFile.close();
     }
   }
 }
 
 Future<List<String>> getLogFiles() async {
-  final dir = await getApplicationDocumentsDirectory();
-  final logDir = Directory(p.join(dir.path, 'logs'));
+  final prefs = await SharedPreferences.getInstance();
+  final customLogPath = prefs.getString('log_path');
+
+  final logDir = customLogPath != null && customLogPath.isNotEmpty
+      ? Directory(customLogPath)
+      : Directory(p.join((await getApplicationDocumentsDirectory()).path, 'logs'));
+
   if (!await logDir.exists()) return [];
 
   final files = await logDir.list().toList();
@@ -177,8 +189,14 @@ Future<List<String>> getLogFiles() async {
 }
 
 Future<String> readLogFile(String fileName) async {
-  final dir = await getApplicationDocumentsDirectory();
-  final file = File(p.join(dir.path, 'logs', fileName));
+  final prefs = await SharedPreferences.getInstance();
+  final customLogPath = prefs.getString('log_path');
+
+  final logDir = customLogPath != null && customLogPath.isNotEmpty
+      ? Directory(customLogPath)
+      : Directory(p.join((await getApplicationDocumentsDirectory()).path, 'logs'));
+
+  final file = File(p.join(logDir.path, fileName));
   if (await file.exists()) {
     return await file.readAsString();
   }

@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart';
 import 'dart:io';
@@ -7,23 +8,51 @@ import '../model/task.dart';
 class DatabaseHelper {
   static Database? _database;
   static const String DEFAULT_PRODUCT = 'DEFAULT_PRODUCT';
+  //static String databasePath = '';
+  static String? _databasePath;
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
+  static Future<String> get databasePath async {
+    if (_databasePath == null) {
+      final prefs = await SharedPreferences.getInstance();
+      _databasePath = prefs.getString('dbpath');
+      if (_databasePath == null || _databasePath!.isEmpty) {
+        _databasePath = join(Platform.environment['USERPROFILE']!, 'Desktop');
+      }
+    }
+    return _databasePath!;
+  }
+  static Future<void> setDatabasePath(String newPath) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('dbpath', newPath);
+    _databasePath = newPath;
+    print('New database path set: $_databasePath');
+  }
+
+
+
 
   Future<Database> _initDatabase() async {
-    final desktopPath = join(Platform.environment['USERPROFILE']!, 'Desktop');
-    final databasePath = join(desktopPath, 'SQLtest.db');
+    final dbPath = await databasePath;
+    final path = join(dbPath, 'SQLtest.db');
+    print('Initializing database at path: $path');
 
     return await databaseFactoryFfi.openDatabase(
-      databasePath,
+      path,
       options: OpenDatabaseOptions(
         version: 1,
         onCreate: _onCreate,
       ),
     );
+  }
+  static Future<void> closeDatabase() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+    }
   }
 
   Future<void> _onCreate(Database db, int version) async {

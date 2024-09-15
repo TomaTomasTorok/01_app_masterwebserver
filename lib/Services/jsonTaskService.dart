@@ -2,19 +2,38 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../SQLite/database_helper.dart';
 import '../model/task.dart';
-
+import 'package:path/path.dart' as p;
+// Upravte triedu JsonTaskSynchronizer
 class JsonTaskSynchronizer {
   final DatabaseHelper databaseHelper;
+  static String? _jsonPath;
 
-  JsonTaskSynchronizer(this.databaseHelper, );
+  JsonTaskSynchronizer(this.databaseHelper);
+
+  static Future<void> setJsonPath(String newPath) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('jsonpath', newPath);
+    _jsonPath = newPath;
+  }
+
+  static Future<String> get jsonPath async {
+    if (_jsonPath == null) {
+      final prefs = await SharedPreferences.getInstance();
+      _jsonPath = prefs.getString('jsonpath');
+      if (_jsonPath == null || _jsonPath!.isEmpty) {
+        final documentsDir = await getApplicationDocumentsDirectory();
+        _jsonPath = documentsDir.path;
+      }
+    }
+    return _jsonPath!;
+  }
 
   Future<void> synchronizeJsonWithDatabase(String workplace) async {
     try {
-      final documentsDir = await getApplicationDocumentsDirectory();
-      final jsonFilePath = path.join(documentsDir.path, 'tasks.json');
-
+      final jsonFilePath = p.join(await jsonPath, 'tasks.json');
       final file = File(jsonFilePath);
       if (!await file.exists()) {
         print('JSON file does not exist: $jsonFilePath');
