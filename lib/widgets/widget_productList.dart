@@ -86,7 +86,7 @@ class _ProductListState extends State<ProductList> {
 
     try {
    //   await processProductData(productName, widget.workplaceId);
-      Future<void> generateFakeData() async {
+      Future<void> generateManualDataForDB() async {
 
           final task = Task(
             product: productName,
@@ -98,13 +98,13 @@ class _ProductListState extends State<ProductList> {
 
         print('Generated  CALL tasks for workplace $widget.workplace');
       }
-      await generateFakeData();
+      await generateManualDataForDB();
 
 
       if (!mounted) return;
 
       // Close loading indicator
-      Navigator.of(context).pop();
+     // Navigator.of(context).pop();
 
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Call completed for $productName')));
     } catch (e) {
@@ -244,7 +244,17 @@ class _ProductListState extends State<ProductList> {
                   suffixIcon: Icon(Icons.search),
                 ),
                 onChanged: _filterProducts,
-                onSubmitted: (_) => _handleEnterPressed(),
+                onSubmitted: (_){
+                  _handleEnterPressed();
+                // Clear the text field
+                _filterController.clear();
+                // Set focus back to the text field
+                _filterFocusNode.requestFocus();
+                  // add pruduct to the list
+                  _filterProducts("");
+
+                }
+
               ),
             ),
 

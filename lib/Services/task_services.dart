@@ -14,7 +14,7 @@ class TaskService {
   final List<ProductDataProcessor> _processors = [];
   Task? _finishedTask;
   bool isBlocked = false;
-  final DateTime _now = DateTime.now();
+  // DateTime _now = DateTime.now();
   String? _currentProduct;
   // Getter pre aktuálny produkt
   String? get currentProduct => _currentProduct;
@@ -46,7 +46,7 @@ class TaskService {
       _finishedTask!.status = 'Done';
       _currentProduct = null;
       _finishedTask!.workstationProcessed = 'Manual Done';
-      _finishedTask!.timestampProcessed = _now.toUtc();
+      _finishedTask!.timestampProcessed = DateTime.now().toLocal().toUtc().add(Duration(hours: 2));
       _databaseHelper.updateTask(_finishedTask!);
     }
   }
@@ -117,6 +117,7 @@ class TaskService {
   Future<void> _processTask(Task task, String workplace) async {
     final productExists = await _databaseHelper.productExists(task.product, workplace);
     if (!productExists) {
+      isBlocked = false;
       print('Product ${task.product} does not exist in product_data for workplace $workplace');
       return;
     }
@@ -146,7 +147,7 @@ class TaskService {
     task.status = 'DONE';
     _currentProduct = null;
     task.workstationProcessed = workplace;
-    task.timestampProcessed = _now.toUtc();
+    task.timestampProcessed = DateTime.now().toLocal().toUtc().add(Duration(hours: 2));
     _databaseHelper.updateTask(task);
   }
 

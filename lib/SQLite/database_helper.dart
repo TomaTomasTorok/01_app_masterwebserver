@@ -37,7 +37,7 @@ class DatabaseHelper {
 
   Future<Database> _initDatabase() async {
     final dbPath = await databasePath;
-    final path = join(dbPath, 'SQLtest.db');
+    final path = join(dbPath, 'SQLite_TorSoft.db');
     print('Initializing database at path: $path');
 
     return await databaseFactoryFfi.openDatabase(
