@@ -14,53 +14,68 @@ import '../main.dart';
 import 'jsonTaskService.dart';
 
 
+
   void showSettingsDialog(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
     final currentLogPath = prefs.getString('logpath') ?? 'Default Log Path';
     final currentDbPath = prefs.getString('dbpath') ?? 'Default DB Path';
     final currentJsonPath = prefs.getString('jsonpath') ?? 'Default JSON Path';
+    var useMultipleJsonFiles = prefs.getBool('use_multiple_json_files') ?? false;
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Settings'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: Text('Log Files Path'),
-                subtitle: Text(currentLogPath),
-                trailing: Icon(Icons.folder),
-                onTap: () => pickFolder(context, 'logpath', currentLogPath),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text('Settings'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: Text('Log Files Path'),
+                    subtitle: Text(currentLogPath),
+                    trailing: Icon(Icons.folder),
+                    onTap: () => pickFolder(context, 'logpath', currentLogPath),
+                  ),
+                  ListTile(
+                    title: Text('SQLite DB Path'),
+                    subtitle: Text(currentDbPath),
+                    trailing: Icon(Icons.folder),
+                    onTap: () => pickFolder(context, 'dbpath', currentDbPath),
+                  ),
+                  ListTile(
+                    title: Text('JSON Files Path'),
+                    subtitle: Text(currentJsonPath),
+                    trailing: Icon(Icons.folder),
+                    onTap: () => pickFolder(context, 'jsonpath', currentJsonPath),
+                  ),
+                  SwitchListTile(
+                    title: Text('Use Multiple JSON Files'),
+                    value: useMultipleJsonFiles,
+                    onChanged: (bool value) async {
+                      setState(() {
+                        useMultipleJsonFiles = value;
+                      });
+                      await prefs.setBool('use_multiple_json_files', value);
+                    },
+                  ),
+                ],
               ),
-              ListTile(
-                title: Text('SQLite DB Path'),
-                subtitle: Text(currentDbPath),
-                trailing: Icon(Icons.folder),
-                onTap: () => pickFolder(context, 'dbpath', currentDbPath),
-              ),
-              ListTile(
-                title: Text('JSON Files Path'),
-                subtitle: Text(currentJsonPath),
-                trailing: Icon(Icons.folder),
-                onTap: () => pickFolder(context, 'jsonpath', currentJsonPath),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              child: Text('Close'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
+              actions: [
+                TextButton(
+                  child: Text('Close'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            );
+          },
         );
       },
     );
   }
-
   void pickFolder(BuildContext context, String key, String currentPath) async {
     String? selectedDirectory = await FilePicker.platform.getDirectoryPath();
 
