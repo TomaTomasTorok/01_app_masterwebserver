@@ -32,8 +32,24 @@ class DatabaseHelper {
     print('New database path set: $_databasePath');
   }
 
-
-
+  Future<int> renameSensorType(String workplaceId, String productName, String masterIP, int slave, int sensor, String newName) async {
+    final db = await database;
+    return await db.update(
+      'product_data',
+      {'sensor_type': newName},
+      where: 'workplace_id = ? AND product = ? AND master_ip = ? AND slave = ? AND sensor = ?',
+      whereArgs: [workplaceId, productName, masterIP, slave, sensor],
+    );
+  }
+  Future<int> renameSensorTypeWorkplace(String workplaceId,  String masterIP, int slave, int sensor, String newName) async {
+    final db = await database;
+    return await db.update(
+      'product_data',
+      {'sensor_type': newName},
+      where: 'workplace_id = ?  AND master_ip = ? AND slave = ? AND sensor = ?',
+      whereArgs: [workplaceId,  masterIP, slave, sensor],
+    );
+  }
 
   Future<Database> _initDatabase() async {
     final dbPath = await databasePath;
