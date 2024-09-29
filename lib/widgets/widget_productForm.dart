@@ -267,22 +267,7 @@ class _ProductFormState extends State<ProductForm> {
       },
     );
   }
-  Future<void> _updateSequences(int oldIndex, int newIndex) async {
-    if (oldIndex == newIndex) return;
 
-    final item = _items.removeAt(oldIndex);
-    _items.insert(newIndex, item);
-
-    int startIndex = oldIndex < newIndex ? oldIndex : newIndex;
-    int endIndex = oldIndex < newIndex ? newIndex : oldIndex;
-
-    for (int i = startIndex; i <= endIndex; i++) {
-      _items[i]['sequence'] = i + 1;
-      await _databaseHelper.updateProductData(_items[i]['id'], {'sequence': i + 1});
-    }
-
-    setState(() {});
-  }
   Future<void> _renameSensorInWorkplace(Map<String, dynamic> item) async {
     String? newName = await _sensorRenamer.renameSensorInWorkplace(item, widget.workplace);
     if (newName != null) {

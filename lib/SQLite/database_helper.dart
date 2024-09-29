@@ -15,6 +15,8 @@ class DatabaseHelper {
     _database = await _initDatabase();
     return _database!;
   }
+
+
   static Future<String> get databasePath async {
     if (_databasePath == null) {
       final prefs = await SharedPreferences.getInstance();
@@ -175,6 +177,8 @@ class DatabaseHelper {
       return id;
     });
   }
+
+
   Future<String> _getMasterIPForWorkplace(String workplaceId, Transaction txn) async {
     final result = await txn.query(
       'product_data',
@@ -209,6 +213,7 @@ class DatabaseHelper {
       whereArgs: [id],
     );
   }
+
 
   Future<int> deleteWorkplace(String workplaceId) async {
     final db = await database;
