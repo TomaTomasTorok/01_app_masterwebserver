@@ -543,8 +543,8 @@ class _AlternatingColorListTileState extends State<AlternatingColorListTile> {
             ElevatedButton(
               child: Text('Delete'),
               style: ElevatedButton.styleFrom(
-                primary: Colors.red,
-                onPrimary: Colors.white,
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
               ),
               onPressed: () {
                 showDialog(

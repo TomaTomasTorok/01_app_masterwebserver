@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../SQLite/database_helper.dart';
 import '../model/task.dart';
 import './processProductData.dart';
-import './widget_productForm.dart'; // Uistite sa, že máte správny import pre ProductForm
+import 'sensors_list/widget_productForm.dart'; // Uistite sa, že máte správny import pre ProductForm
 
 class ProductList extends StatefulWidget {
   final String workplaceId;

@@ -140,8 +140,8 @@ class _MasterIPListState extends State<MasterIPList> {
                     trailing: ElevatedButton(
                       child: Text('Delete'),
                       style: ElevatedButton.styleFrom(
-                        primary: Colors.red,
-                        onPrimary: Colors.white,
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
                       ),
                       onPressed: () => _showDeleteConfirmation(masterIP['master_ip']),
                     ),

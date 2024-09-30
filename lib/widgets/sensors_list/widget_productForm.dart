@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:masterwebserver/widgets/widget_productForm_popUp.dart';
-import 'package:masterwebserver/widgets/workplace/workplace_learning.dart';
 import '../../SQLite/database_helper.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
-import 'dart:convert';
+import '../../Services/sensors_operation.dart';
+import '../workplace/workplace_learning.dart';
+import 'widget_productForm_popUp.dart';
 
-import '../Services/sensors_operation.dart';
 
 class ProductForm extends StatefulWidget {
   final String workplace;
@@ -29,53 +27,28 @@ class ProductForm extends StatefulWidget {
 
 class _ProductFormState extends State<ProductForm> {
   final DatabaseHelper _databaseHelper = DatabaseHelper();
+  late SensorOperations _sensorOperations;
+  late CallPositionService _callPositionService;
   List<Map<String, dynamic>> _items = [];
   bool _showFinishLearnButton = true;
   late SensorRenamer _sensorRenamer;
-  WebSocketChannel? _channel;
-  late CallPositionService _callPositionService;
   bool _isRemapping = false;
   Map<int, bool> _callPositionStates = {};
 
   @override
   void initState() {
     super.initState();
+    _sensorOperations = SensorOperations(context, _databaseHelper);
+    _callPositionService = CallPositionService();
     _sensorRenamer = SensorRenamer(context, _databaseHelper);
     _loadProductData();
     NotificationService.addListener(_onNewSensorAdded);
-    _callPositionService = CallPositionService();
   }
 
   @override
   void dispose() {
     NotificationService.removeListener(_onNewSensorAdded);
     super.dispose();
-  }
-  Future<void> _toggleCallPosition(Map<String, dynamic> item) async {
-    int itemId = item['id'];
-    bool wasActive = _callPositionStates[itemId] ?? false;
-    // Deaktivujeme všetky tlačidlá
-    _callPositionStates.updateAll((key, value) => false);
-    // Ak tlačidlo nebolo aktívne, aktivujeme ho. Ak bolo aktívne, zostane deaktivované.
-    if (!wasActive) {
-      _callPositionStates[itemId] = true;
-    }
-    setState(() {});
-    // Odošleme príslušný stav
-    int state = _callPositionStates[itemId]! ? 1 : 0;
-     _callPositionService.callPosition(item['master_ip'], item['slave'], item['sensor'], state);
-    // Vizuálna spätná väzba - krátke bliknutie
-    if (mounted) {
-      setState(() {
-        _callPositionStates[itemId] = false;
-      });
-      await Future.delayed(Duration(milliseconds: 200));
-      if (mounted) {
-        setState(() {
-          _callPositionStates[itemId] = state == 1;
-        });
-      }
-    }
   }
 
   void _onNewSensorAdded(String message) {
@@ -91,7 +64,11 @@ class _ProductFormState extends State<ProductForm> {
           widget.workplace
       );
       setState(() {
-        _items = data;
+        // Vytvorenie hlbokej kópie dát
+        _items = List<Map<String, dynamic>>.from(
+            data.map((item) => Map<String, dynamic>.from(item))
+        );
+        _items.sort((a, b) => a['sequence'].compareTo(b['sequence']));
       });
     } catch (e) {
       print('Error loading product data: $e');
@@ -99,161 +76,65 @@ class _ProductFormState extends State<ProductForm> {
         SnackBar(content: Text('Failed to load product data')),
       );
     }
+
+
+  }
+
+  Future<void> _toggleCallPosition(Map<String, dynamic> item) async {
+    int itemId = item['id'];
+    bool wasActive = _callPositionStates[itemId] ?? false;
+    _callPositionStates.updateAll((key, value) => false);
+    if (!wasActive) {
+      _callPositionStates[itemId] = true;
+    }
+    setState(() {});
+    int state = _callPositionStates[itemId]! ? 1 : 0;
+    await _callPositionService.callPosition(item['master_ip'], item['slave'], item['sensor'], state);
+    if (mounted) {
+      setState(() {
+        _callPositionStates[itemId] = false;
+      });
+      await Future.delayed(Duration(milliseconds: 200));
+      if (mounted) {
+        setState(() {
+          _callPositionStates[itemId] = state == 1;
+        });
+      }
+    }
   }
 
   Future<void> _remapSensor(Map<String, dynamic> item) async {
-    if (_isRemapping) return; // Prevent multiple remapping processes
+    if (_isRemapping) return;
     _isRemapping = true;
-
-    print('Starting remapping process for sensor: ${item['id']}');
     try {
-      final remapData = {
-        "data": [
-          [0],
-          [99, 2, item['sensor']]
-        ]
-      };
-
-      print('Initializing WebSocket connection to ${item['master_ip']}');
-      _channel = await _initializeWebSocket(item['master_ip']);
-
-      print('Sending remap data: $remapData');
-      _channel?.sink.add(json.encode(remapData));
-
-      if (!mounted) return;
-
-      print('Showing remapping progress dialog');
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (BuildContext context) {
-          return AlertDialog(
-            title: Text('Remapping in Progress'),
-            content: Text('Please wait while the sensor is being remapped...'),
-          );
-        },
-      );
-
-      print('Waiting for WebSocket response...');
-      await _channel?.stream.listen((message) {
-        print('Received WebSocket message: $message');
-
-        if (!mounted) return;
-
-        try {
-          final parts = message.toString().split(':');
-          if (parts.length == 3) {
-            final newSlave = int.parse(parts[0]);
-            final newSensor = int.parse(parts[2]);
-
-            print('New Slave: $newSlave, New Sensor: $newSensor');
-
-            final newPosition = {
-              'slave': newSlave,
-              'sensor': newSensor,
-            };
-
-            print('Updating sensor position for sensor ID: ${item['id']}');
-            _updateSensorPosition(item['id'], newPosition);
-
-            print('Closing remapping progress dialog');
-            Navigator.of(context).pop();
-
-            print('Remapping process completed successfully');
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Sensor remapped successfully to Slave: $newSlave, Sensor: $newSensor')),
-            );
-
-            // Send closing data and close the WebSocket connection
-            _sendClosingDataAndCloseWebSocket();
-          } else {
-            throw FormatException('Unexpected message format');
-          }
-        } catch (e) {
-          print('Error processing WebSocket message: $e');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Error processing remapping response')),
-            );
-          }
-        } finally {
-          _isRemapping = false;
-        }
-      }).asFuture();
-
+      await _sensorOperations.remapSensor(item);
+      _loadProductData();
     } catch (e) {
       print('Error during remapping: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An error occurred during remapping')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('An error occurred during remapping')),
+      );
     } finally {
       _isRemapping = false;
-      // Ensure closing data is sent and WebSocket is closed even if an error occurred
-      _sendClosingDataAndCloseWebSocket();
-    }
-  }
-
-  void _sendClosingDataAndCloseWebSocket() async {
-    if (_channel != null) {
-      print('Sending closing data before closing WebSocket connection');
-      final closingData = {
-        "data": [
-          [0],[0,0,0]
-
-        ]
-      };
-      _channel!.sink.add(json.encode(closingData));
-
-      // Wait a short time to ensure the data is sent before closing
-      await Future.delayed(Duration(milliseconds: 100));
-
-      print('Closing WebSocket connection');
-      await _channel!.sink.close();
-      _channel = null;
-    }
-  }
-
-  Future<WebSocketChannel> _initializeWebSocket(String masterIp) async {
-    final channel = WebSocketChannel.connect(Uri.parse('ws://$masterIp:81'));
-    await channel.ready;
-    return channel;
-  }
-
-  Future<void> _updateSensorPosition(int sensorId, Map<String, dynamic> newPosition) async {
-    try {
-      await _databaseHelper.updateProductData(sensorId, newPosition);
-      _loadProductData(); // Aktualizujeme zoznam po zmene
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sensor remapped successfully')),
-      );
-    } catch (e) {
-      print('Error updating sensor position: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update sensor position')),
-      );
     }
   }
 
   Future<void> _deleteProduct(int sensorId) async {
-    await _databaseHelper.deleteSensor(sensorId, );
+    await _databaseHelper.deleteSensor(sensorId);
     _loadProductData();
   }
+
   void _showDeleteConfirmation(int sensorId) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Delete Sensor'),
-          content: Text('Are you sure you want to delete Sensor?'),
+          content: Text('Are you sure you want to delete this Sensor?'),
           actions: <Widget>[
             TextButton(
               child: Text('Cancel'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
+              onPressed: () => Navigator.of(context).pop(),
             ),
             TextButton(
               child: Text('Delete'),
@@ -268,47 +149,23 @@ class _ProductFormState extends State<ProductForm> {
     );
   }
 
-  Future<void> _renameSensorInWorkplace(Map<String, dynamic> item) async {
-    String? newName = await _sensorRenamer.renameSensorInWorkplace(item, widget.workplace);
-    if (newName != null) {
-      _loadProductData(); // Reload data after renaming
-    }
-  }
-
-
   Future<void> _renameSensor(Map<String, dynamic> item) async {
     String? newName = await _sensorRenamer.renameSensor(item, widget.workplace, widget.product['product']);
     if (newName != null) {
-      _loadProductData(); // Reload data after renaming
+      _loadProductData();
     }
   }
 
-
-  Future<void> stopTesting() async {
-    if (_channel != null) {
-      final stopData = {
-        "data": [
-          [0],
-          [0,0,0]
-        ]
-      };
-
-      try {
-        _channel!.sink.add(json.encode(stopData));
-        await Future.delayed(Duration(milliseconds: 100)); // Give some time for the message to be sent
-        await _channel!.sink.close();
-        _channel = null;
-      } catch (e) {
-        print('Error sending stop signal or closing channel: $e');
-      }
+  Future<void> _renameSensorInWorkplace(Map<String, dynamic> item) async {
+    String? newName = await _sensorRenamer.renameSensorInWorkplace(item, widget.workplace);
+    if (newName != null) {
+      _loadProductData();
     }
   }
 
   Future<void> _finishLearn() async {
     try {
-      await stopTesting();
       widget.onFinishLearning?.call();
-
       await showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -321,7 +178,6 @@ class _ProductFormState extends State<ProductForm> {
           );
         },
       );
-
       setState(() {
         _showFinishLearnButton = false;
       });
@@ -355,7 +211,7 @@ class _ProductFormState extends State<ProductForm> {
                   _items = _items.map((i) => i['id'] == item['id'] ? {...newItem, 'id': item['id']} : i).toList();
                 });
               }
-              _loadProductData(); // Reload data after adding/editing
+              _loadProductData();
             } catch (e) {
               print('Error saving sensor data: $e');
               ScaffoldMessenger.of(context).showSnackBar(
@@ -367,19 +223,20 @@ class _ProductFormState extends State<ProductForm> {
       },
     );
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-        icon: Icon(Icons.arrow_back),
-    onPressed: ()  async {
-      if (widget.isLearningMode && _showFinishLearnButton){
-       await   _finishLearn();
-       Navigator.of(context).pop();}
-  else{  Navigator.of(context).pop();}
-    },),
-
+          icon: Icon(Icons.arrow_back),
+          onPressed: () async {
+            if (widget.isLearningMode && _showFinishLearnButton) {
+              await _finishLearn();
+            }
+            Navigator.of(context).pop();
+          },
+        ),
         title: Text("Sensors for ${widget.product['product']} in ${widget.workplace}"),
         actions: [
           if (widget.isLearningMode && _showFinishLearnButton)
@@ -392,12 +249,14 @@ class _ProductFormState extends State<ProductForm> {
       ),
       body: _items.isEmpty
           ? Center(child: Text('Learning in progress... Waiting for sensors.'))
-          : ListView.builder(
+          : ReorderableListView.builder(
+        buildDefaultDragHandles: false,
         itemCount: _items.length,
         itemBuilder: (context, index) {
           final item = _items[index];
           bool isCallPositionActive = _callPositionStates[item['id']] ?? false;
           return Card(
+            key: ValueKey(item['id']),
             elevation: 2,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -424,12 +283,14 @@ class _ProductFormState extends State<ProductForm> {
               ),
               subtitle: Text('Slave: ${item['slave']},   Sensor: ${item['sensor']}'),
               onTap: () => _showAddOrEditItemDialog(item: item),
+
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: [   ElevatedButton(
-                  child: Text('Rename'),
-                  onPressed: () => _renameSensor(item),
-                ),
+                children: [
+                  ElevatedButton(
+                    child: Text('Rename'),
+                    onPressed: () => _renameSensor(item),
+                  ),
                   SizedBox(width: 8),
                   ElevatedButton(
                     child: Text('Rename in workplace'),
@@ -450,7 +311,6 @@ class _ProductFormState extends State<ProductForm> {
                     onPressed: () => _remapSensor(item),
                   ),
                   SizedBox(width: 50),
-
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       elevation: 4,
@@ -469,10 +329,37 @@ class _ProductFormState extends State<ProductForm> {
                     ),
                     onPressed: () => _showDeleteConfirmation(item['id'].toInt()),
                   ),
+                  SizedBox(width: 50),
+
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: Container(width: 65,color: Color(0xF6EFF8FF),
+                        child: Column(
+                          children: [
+                            Icon(Icons.touch_app, color: Colors.grey, size: 30,),
+                            Text("ReOrder")
+                          ],
+                        ),
+                      ),
+                    ),
+
                 ],
               ),
             ),
           );
+        },
+        onReorder: (oldIndex, newIndex) {
+          setState(()  {
+            if (oldIndex < newIndex) {
+              newIndex -= 1;
+            }
+            final item = _items.removeAt(oldIndex);
+            _items.insert(newIndex, item);
+            _updateSequences(oldIndex, newIndex).then((_) {
+              // Po dokončení aktualizácie sekvencií znovu nastavíme stav pre obnovenie UI
+              _loadProductData();
+            });
+          });
         },
       ),
       floatingActionButton: FloatingActionButton(
@@ -482,4 +369,49 @@ class _ProductFormState extends State<ProductForm> {
       ),
     );
   }
+
+  Future<void> _updateSequences(int oldIndex, int newIndex) async {
+    final movedItem = _items[newIndex];
+     int newSequence;
+
+    if (newIndex > 0) {
+      // Získame sequence hodnotu predchádzajúcej položky
+      newSequence = _items[newIndex - 1]['sequence']+1;
+    } else {
+      // Ak je presunutá na začiatok, použijeme hodnotu 0
+      newSequence = 1;
+    }
+
+    // Aktualizujeme sequence presunutej položky
+    await _databaseHelper.updateSequence(movedItem['id'], newSequence);
+
+
+    // Aktualizujeme ovplyvnené položky
+    if (oldIndex < newIndex) {
+     // Položka bola presunutá nadol
+      final lastIndex = _items.length - 1;
+      for (int i = newIndex; i <= lastIndex; i++) {
+        if (i == newIndex) continue; // Preskočíme presunutú položku
+        final currentItem = _items[i];
+        final currentSequence = await _databaseHelper.getSequence(currentItem['id']);
+        await _databaseHelper.updateSequence(currentItem['id'], currentSequence + 1);
+
+      }
+    } else if (oldIndex > newIndex) {
+      // Položka bola presunutá nahor
+      final lastIndex = _items.length - 1;
+      for (int i = newIndex + 1; i <= lastIndex; i++) {
+        final currentItem = _items[i];
+        final currentSequence = await _databaseHelper.getSequence(currentItem['id']);
+        await _databaseHelper.updateSequence(currentItem['id'], currentSequence + 1);
+
+      }
+    }
+
+    // Znovu zoradíme lokálny zoznam podľa aktualizovaných sequence hodnôt
+    _items.sort((a, b) => a['sequence'].compareTo(b['sequence']));
+
+  }
+
+
 }

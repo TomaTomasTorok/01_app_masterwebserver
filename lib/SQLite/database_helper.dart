@@ -198,6 +198,29 @@ class DatabaseHelper {
       whereArgs: [productName, workplaceId],
     );
   }
+  Future<int> updateSequence(int id, int newSequence) async {
+    final db = await database;
+    return await db.update(
+      'product_data',
+      {'sequence': newSequence},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+  Future<int> getSequence(int id) async {
+    final db = await database;
+    final result = await db.query(
+      'product_data',
+      columns: ['sequence'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (result.isNotEmpty) {
+      return result.first['sequence'] as int;
+    }
+    throw Exception('Item not found');
+  }
+
 
   Future<int> insertProductData(Map<String, dynamic> data) async {
     final db = await database;

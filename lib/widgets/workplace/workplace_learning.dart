@@ -3,7 +3,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'dart:convert';
 import 'dart:async';
 import '../../SQLite/database_helper.dart';
-import '../widget_productForm.dart';
+import '../sensors_list/widget_productForm.dart';
 
 Future<Function> handleLearning(BuildContext context, String workplaceId, DatabaseHelper databaseHelper, Function finishCallback) async {
   Map<String, WebSocketChannel> channels = {};
