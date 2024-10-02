@@ -358,13 +358,22 @@ class DatabaseHelper {
       whereArgs: [task.id],
     );
   }
-  Future<void> updateSensorValue(String id, double newValue) async {
+  // Future<void> updateSensorValue(String id, double newValue) async {
+  //   final db = await database;
+  //   await db.update(
+  //     'product_data',
+  //     {'sensor_value': newValue},
+  //     where: 'id = ?',
+  //     whereArgs: [id],
+  //   );
+  // }
+  Future<void> updateSensorValue(String workplaceId, String product, String masterIp, int sequence, double newValue) async {
     final db = await database;
     await db.update(
       'product_data',
       {'sensor_value': newValue},
-      where: 'id = ?',
-      whereArgs: [id],
+      where: 'workplace_id = ? AND product = ? AND master_ip = ? AND sequence = ?',
+      whereArgs: [workplaceId, product, masterIp, sequence],
     );
   }
   Future<void> updateSensorValueForProduct(String workplace, String product, double newValue) async {

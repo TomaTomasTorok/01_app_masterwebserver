@@ -208,8 +208,10 @@ class SensorRecolor {
         double newSensorValue = _calculateNewSensorValue(currentValue, selectedColorValue.toDouble());
 
         await databaseHelper.updateSensorValue(
-
-          item['id'].toString(),
+          item['workplace_id'],
+          item['product'],
+          item['master_ip'],
+          item['sequence'],
           newSensorValue,
         );
         ScaffoldMessenger.of(context).showSnackBar(

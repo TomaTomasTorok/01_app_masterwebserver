@@ -188,6 +188,7 @@ class _ProductFormState extends State<ProductForm> {
         }
       });
     }
+    _loadProductData();
   }
 
   Future<void> _renameSensorInWorkplace(Map<String, dynamic> item) async {
