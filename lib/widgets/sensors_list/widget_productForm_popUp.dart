@@ -151,7 +151,162 @@ class _ProductFormPopupState extends State<ProductFormPopup> {
 }
 
 
+class SensorRecolor {
+  final DatabaseHelper databaseHelper;
+  final BuildContext context;
 
+  SensorRecolor(this.context, this.databaseHelper);
+
+  Future<double?> updateSensorValue(Map<String, dynamic> item, String workplace, String product) async {
+    final Map<String, Color> colors = {
+      '1': Colors.green,    // zelena
+      '2': Colors.blue,    // Modrá
+      '3': Colors.red,     // Červená
+      '4': Colors.purple,  // Fialová
+      '5': Colors.yellow,  // Žltá
+      '6': Colors.brown,   // Hnedá
+    };
+
+    int? selectedColorValue = await showDialog<int>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Select Color'),
+          content: Container(
+            width: 400,
+            child: GridView.builder(
+              shrinkWrap: true,
+              itemCount: colors.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 6,
+                childAspectRatio: 1.0,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+              ),
+              itemBuilder: (context, index) {
+                String colorKey = colors.keys.elementAt(index);
+                Color color = colors[colorKey]!;
+                return InkWell(
+                  onTap: () => Navigator.of(context).pop(int.parse(colorKey)),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: color,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selectedColorValue != null) {
+      try {
+        double currentValue = item['sensor_value'] as double;
+        double newSensorValue = _calculateNewSensorValue(currentValue, selectedColorValue.toDouble());
+
+        await databaseHelper.updateSensorValue(
+
+          item['id'].toString(),
+          newSensorValue,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sensor color updated successfully')),
+        );
+        return newSensorValue;
+      } catch (e) {
+        print('Error updating sensor color: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update sensor color')),
+        );
+        return null;
+      }
+    }
+    return null;
+  }
+
+  Future<double?> updateSensorValueForProduct(String workplace, String product, double newValue) async {
+    double? updatedValue = await showDialog<double>(
+      context: context,
+      builder: (BuildContext context) {
+        final TextEditingController controller = TextEditingController(text: newValue.toString());
+        return AlertDialog(
+          title: Text('Update Sensor Value for Product'),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(hintText: "Enter new value"),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: Text('Update'),
+              onPressed: () => Navigator.of(context).pop(double.tryParse(controller.text)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (updatedValue != null) {
+      try {
+        await databaseHelper.updateSensorValueForProduct(
+          workplace,
+          product,
+          updatedValue,
+        );
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sensor values updated for all sensors in the product')),
+        );
+        return updatedValue;
+      } catch (e) {
+        print('Error updating sensor values for product: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update sensor values for product')),
+        );
+        return null;
+      }
+    }
+    return null;
+  }
+
+  // double _calculateNewSensorValue(double currentValue, double newValue) {
+  //   String currentStr = currentValue.toStringAsFixed(2);
+  //   String newStr = newValue.toStringAsFixed(0);
+  //
+  //   if (currentStr.length >= 4) {  // xx.xx
+  //     return double.parse('${currentStr.substring(0,1)}${newStr}${currentStr.substring(3)}');
+  //   } else if (currentStr.length == 3) {  // x.x
+  //     return double.parse('${newStr}${currentStr.substring(2)}');
+  //   } else {  // x
+  //     return double.parse('${newStr}.${currentStr.substring(0,1)}');
+  //   }
+  // }
+  double _calculateNewSensorValue(double currentValue, double newValue) {
+
+    String currentStr = currentValue.toInt().toString();
+    String newStr = newValue.toInt().toString();
+
+    if (currentStr.length == 3) {
+      // Ak je aktuálna hodnota trojmiestna, nahradíme druhú číslicu
+      return double.parse('${currentStr[0]}${newStr}${currentStr[2]}');
+    } else if (currentStr.length == 2) {
+      // Ak je aktuálna hodnota dvojmiestna, nahradíme prvú číslicu
+      return double.parse('${newStr}${currentStr[1]}');
+    } else if (currentStr.length == 1) {
+      // Ak je aktuálna hodnota jednomiestna, vytvoríme nové dvojmiestne číslo
+      return double.parse('${newStr}${currentStr}');
+    } else {
+      // Pre prípad, že by hodnota mala viac ako 3 číslice, vrátime pôvodnú novú hodnotu
+      return newValue;
+    }
+  }
+}
 
 class SensorRenamer {
   final DatabaseHelper databaseHelper;

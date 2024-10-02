@@ -11,7 +11,7 @@ class CallPositionService {
       await _initializeWebSocket(masterIp);
       Map<String, dynamic> callData;
       if (selected == 1) {
-        print("object");
+
         callData = {
           "data": [
             [0],
@@ -19,10 +19,11 @@ class CallPositionService {
           ]
         };
       } else {
-        print("objectOff");
+
         callData = {
           "data": [
-            [0],[0,0,0]
+            [0]
+      //      ,[0,0,0]
           ]
         };
       }
@@ -131,7 +132,8 @@ class SensorOperations {
     if (channel != null) {
       final closingData = {
         "data": [
-          [0],[0,0,0]
+          [0]
+     //     ,[0,0,0]
         ]
       };
       channel.sink.add(json.encode(closingData));

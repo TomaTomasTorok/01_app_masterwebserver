@@ -358,6 +358,54 @@ class DatabaseHelper {
       whereArgs: [task.id],
     );
   }
+  Future<void> updateSensorValue(String id, double newValue) async {
+    final db = await database;
+    await db.update(
+      'product_data',
+      {'sensor_value': newValue},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+  Future<void> updateSensorValueForProduct(String workplace, String product, double newValue) async {
+    final db = await database;
+    List<Map<String, dynamic>> sensors = await db.query(
+      'product_data',
+      where: 'workplace_id = ? AND product = ?',
+      whereArgs: [workplace, product],
+    );
+
+    for (var sensor in sensors) {
+      double currentValue = sensor['sensor_value'] as double;
+      double updatedValue = _calculateNewSensorValue(currentValue, newValue);
+      await db.update(
+        'product_data',
+        {'sensor_value': updatedValue},
+        where: 'id = ?',
+        whereArgs: [sensor['id']],
+      );
+    }
+  }
+
+  double _calculateNewSensorValue(double currentValue, double newValue) {
+
+    String currentStr = currentValue.toInt().toString();
+    String newStr = newValue.toInt().toString();
+
+    if (currentStr.length == 3) {
+      // Ak je aktuálna hodnota trojmiestna, nahradíme druhú číslicu
+      return double.parse('${currentStr[0]}${newStr}${currentStr[2]}');
+    } else if (currentStr.length == 2) {
+      // Ak je aktuálna hodnota dvojmiestna, nahradíme prvú číslicu
+      return double.parse('${newStr}${currentStr[1]}');
+    } else if (currentStr.length == 1) {
+      // Ak je aktuálna hodnota jednomiestna, vytvoríme nové dvojmiestne číslo
+      return double.parse('${newStr}${currentStr}');
+    } else {
+      // Pre prípad, že by hodnota mala viac ako 3 číslice, vrátime pôvodnú novú hodnotu
+      return newValue;
+    }
+  }
 
   Future<bool> productExists(String productName, String workplaceId) async {
     final db = await database;

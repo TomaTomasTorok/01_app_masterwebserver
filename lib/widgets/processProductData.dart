@@ -180,9 +180,39 @@ class ProductDataProcessor {
     }
 
     try {
-     // print('Formatting data for $masterIP. ${data.length} items to send.');
+      // Funkcia na získanie najvyššej hodnoty pre danú pozíciu
+      int getHighestDigit(List<double> values, int position) {
+        return values
+            .where((v) => v >= 10 && v < 100) // Filtrujeme len dvojciferné čísla
+            .map((v) => int.parse(v.toStringAsFixed(0)[position]))
+            .reduce((max, v) => v > max ? v : max);
+      }
+
+      // Získanie všetkých sensor_value
+      List<double> sensorValues = data
+          .map((item) => (item['sensor_value'] as double?) ?? 0.0)
+          .toList();
+
+      // Zistenie, či máme aspoň jedno dvojciferné číslo
+      bool hasDoubleDigit = sensorValues.any((v) => v >= 10 && v < 100);
+
+      // Príprava prvého elementu
+      List<int> firstElement;
+      if (hasDoubleDigit) {
+        int firstDigit = getHighestDigit(sensorValues, 0);
+        int secondDigit = getHighestDigit(sensorValues, 1);
+        firstElement = [firstDigit * 10 + secondDigit];
+      } else {
+        // Alternatíva, ak nemáme žiadne dvojciferné číslo
+        double maxValue = sensorValues.reduce((max, v) => v > max ? v : max);
+        firstElement = [maxValue.round()];
+      }
+
+
+      // print('Formatting data for $masterIP. ${data.length} items to send.');
       var formattedData = [
-        [0],
+      //  [0],
+        firstElement,
         ...data.map((item) => [item['slave'], item['sequence'], item['sensor']])
       ];
       print('Sending data to $masterIP: ${formattedData.length} rows');
@@ -195,6 +225,8 @@ class ProductDataProcessor {
 
   Future<void> _waitForConfirmations(Map<String, bool> confirmations) async {
     print('Waiting for confirmations from ${confirmations.length} Master IPs');
+    bool skipReceived = false;
+
     await Future.wait(confirmations.keys.map((masterIP) async {
       if (isCancel) {
         print('Process cancelled while waiting for confirmations.');
@@ -208,11 +240,14 @@ class ProductDataProcessor {
           return;
         }
 
-      //  print('Processing message from $masterIP: $message');
-        if (message.toString().trim().toLowerCase() == 'master:hotovo' ||
-            message.toString().trim().toLowerCase() == 'master: hotovo') {
+        String lowercaseMessage = message.toString().trim().toLowerCase();
+        if (lowercaseMessage == 'master:hotovo' || lowercaseMessage == 'master: hotovo') {
           confirmations[masterIP] = true;
           print('Received confirmation from $masterIP');
+          break;
+        } else if (lowercaseMessage.contains('skip')) {
+          print('Received skip message from $masterIP');
+          skipReceived = true;
           break;
         } else {
           print('Unrecognized message from $masterIP: $message');
@@ -222,13 +257,18 @@ class ProductDataProcessor {
           print('Process cancelled during confirmation wait.');
           return;
         }
-        await Future.delayed(Duration(milliseconds: 100));  // Krátke oneskorenie, aby sme nezablokovali vlákno
+        await Future.delayed(Duration(milliseconds: 100));
       }
     }));
 
     if (isCancel) {
       print('Process cancelled after waiting for confirmations.');
       return;
+    }
+
+    if (skipReceived) {
+      print('Skip message received. Treating all confirmations as received.');
+      confirmations.updateAll((key, value) => true);
     }
 
     bool allConfirmed = confirmations.values.every((confirmed) => confirmed);
@@ -242,7 +282,6 @@ class ProductDataProcessor {
       print('All Master IPs confirmed successfully');
     }
   }
-
   Future<void> _closeResources() async {
     print('Closing WebSocket channels and stream controllers...');
     for (var entry in channels.entries) {

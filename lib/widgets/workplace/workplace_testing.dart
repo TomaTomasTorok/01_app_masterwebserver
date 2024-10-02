@@ -86,8 +86,9 @@ class TestingManager {
     if (activeChannels.containsKey(workplaceId)) {
       final stopData = {
         "data": [
-          [0,2,3],
-          [0,0,0]
+          [0]
+          ,
+         [0,0,0]
         ]
       };
 

@@ -32,6 +32,7 @@ class _ProductFormState extends State<ProductForm> {
   List<Map<String, dynamic>> _items = [];
   bool _showFinishLearnButton = true;
   late SensorRenamer _sensorRenamer;
+  late SensorRecolor _sensorRecolor;
   bool _isRemapping = false;
   Map<int, bool> _callPositionStates = {};
 
@@ -41,6 +42,7 @@ class _ProductFormState extends State<ProductForm> {
     _sensorOperations = SensorOperations(context, _databaseHelper);
     _callPositionService = CallPositionService();
     _sensorRenamer = SensorRenamer(context, _databaseHelper);
+    _sensorRecolor = SensorRecolor(context, _databaseHelper);
     _loadProductData();
     NotificationService.addListener(_onNewSensorAdded);
   }
@@ -153,6 +155,38 @@ class _ProductFormState extends State<ProductForm> {
     String? newName = await _sensorRenamer.renameSensor(item, widget.workplace, widget.product['product']);
     if (newName != null) {
       _loadProductData();
+    }
+  }
+
+  Color _getSensorColor(double sensorValue) {
+    String valueStr = sensorValue.toStringAsFixed(2);
+    if (valueStr.length >= 2) {
+      switch (valueStr[0]) {
+        case '1': return Colors.green;
+        case '2': return Colors.blue;
+        case '3': return Colors.red;
+        case '4': return Colors.purple;
+        case '5': return Colors.yellow;
+        case '6': return Colors.brown;
+        default: return Colors.greenAccent;
+      }
+    }
+    return Colors.greenAccent; // Default farba
+  }
+
+  Future<void> _recolorSensor(Map<String, dynamic> item) async {
+    double? newSensorValue = await _sensorRecolor.updateSensorValue(
+        item,
+        widget.workplace,
+        widget.product['product']
+    );
+    if (newSensorValue != null) {
+      setState(() {
+        int itemIndex = _items.indexWhere((i) => i['id'] == item['id']);
+        if (itemIndex != -1) {
+          _items[itemIndex]['sensor_value'] = newSensorValue;
+        }
+      });
     }
   }
 
@@ -274,7 +308,7 @@ class _ProductFormState extends State<ProductForm> {
                     ),
                   ),
                   SizedBox(width: 8),
-                  Icon(Icons.sensors, color: Colors.greenAccent),
+                  Icon(Icons.sensors, color: _getSensorColor(item['sensor_value'].toDouble())),
                 ],
               ),
               title: Text(
@@ -290,6 +324,11 @@ class _ProductFormState extends State<ProductForm> {
                   ElevatedButton(
                     child: Text('Rename'),
                     onPressed: () => _renameSensor(item),
+                  ),
+                  SizedBox(width: 8),
+                  ElevatedButton(
+                    child: Text('ReColor'),
+                    onPressed: () => _recolorSensor(item),
                   ),
                   SizedBox(width: 8),
                   ElevatedButton(
