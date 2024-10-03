@@ -181,7 +181,7 @@ Future<void> processAndSaveResponse(
       'sensor': sensor,
       'sequence': newSequence,
       'sensor_type': 'Learned',
-      'sensor_value': 0.0,
+      'sensor_value': 10,
     });
 
     print('Saved data for $productName: Slave $slave, Sensor $sensor, Sequence $newSequence');

@@ -91,7 +91,7 @@ class DatabaseHelper {
         slave INTEGER NOT NULL,
         sensor INTEGER NOT NULL,
         sensor_type TEXT,
-        sensor_value REAL,
+        sensor_value INTEGER,
         sequence INTEGER NOT NULL
       )
     ''');
@@ -129,7 +129,7 @@ class DatabaseHelper {
       'slave': 0,
       'sensor': 0,
       'sequence': 0,
-      'sensor_value': 0.0
+      'sensor_value': 10
     });
   }
   Future<List<Map<String, dynamic>>> getProductsForWorkplace(String workplaceId) async {
@@ -155,7 +155,7 @@ class DatabaseHelper {
         'slave': 0,
         'sensor': 0,
         'sensor_type': 'Default Type',
-        'sensor_value': 0.0,
+        'sensor_value': 10,
         'sequence': 1
       });
 
@@ -276,7 +276,7 @@ class DatabaseHelper {
         'slave': 0,
         'sensor': 0,
         'sequence': 0,
-        'sensor_value': 0.0,
+        'sensor_value': 10,
       });
     } else {
       throw Exception('Workplace with this ID already exists');
@@ -367,7 +367,7 @@ class DatabaseHelper {
   //     whereArgs: [id],
   //   );
   // }
-  Future<void> updateSensorValue(String workplaceId, String product, String masterIp, int sequence, double newValue) async {
+  Future<void> updateSensorValue(String workplaceId, String product, String masterIp, int sequence, int newValue) async {
     final db = await database;
     await db.update(
       'product_data',
@@ -376,7 +376,7 @@ class DatabaseHelper {
       whereArgs: [workplaceId, product, masterIp, sequence],
     );
   }
-  Future<void> updateSensorValueForProduct(String workplace, String product, double newValue) async {
+  Future<void> updateSensorValueForProduct(String workplace, String product, int newValue) async {
     final db = await database;
     List<Map<String, dynamic>> sensors = await db.query(
       'product_data',
@@ -385,8 +385,8 @@ class DatabaseHelper {
     );
 
     for (var sensor in sensors) {
-      double currentValue = sensor['sensor_value'] as double;
-      double updatedValue = _calculateNewSensorValue(currentValue, newValue);
+      int currentValue = sensor['sensor_value'] as int;
+      int updatedValue = _calculateNewSensorValue(currentValue, newValue);
       await db.update(
         'product_data',
         {'sensor_value': updatedValue},
@@ -396,20 +396,20 @@ class DatabaseHelper {
     }
   }
 
-  double _calculateNewSensorValue(double currentValue, double newValue) {
+  int _calculateNewSensorValue(int currentValue, int newValue) {
 
     String currentStr = currentValue.toInt().toString();
     String newStr = newValue.toInt().toString();
 
     if (currentStr.length == 3) {
       // Ak je aktuálna hodnota trojmiestna, nahradíme druhú číslicu
-      return double.parse('${currentStr[0]}${newStr}${currentStr[2]}');
+      return int.parse('${currentStr[0]}${newStr}${currentStr[2]}');
     } else if (currentStr.length == 2) {
       // Ak je aktuálna hodnota dvojmiestna, nahradíme prvú číslicu
-      return double.parse('${newStr}${currentStr[1]}');
+      return int.parse('${newStr}${currentStr[1]}');
     } else if (currentStr.length == 1) {
       // Ak je aktuálna hodnota jednomiestna, vytvoríme nové dvojmiestne číslo
-      return double.parse('${newStr}${currentStr}');
+      return int.parse('${newStr}${currentStr}');
     } else {
       // Pre prípad, že by hodnota mala viac ako 3 číslice, vrátime pôvodnú novú hodnotu
       return newValue;

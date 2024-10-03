@@ -158,7 +158,7 @@ class _ProductFormState extends State<ProductForm> {
     }
   }
 
-  Color _getSensorColor(double sensorValue) {
+  Color _getSensorColor(int sensorValue) {
     String valueStr = sensorValue.toStringAsFixed(2);
     if (valueStr.length >= 2) {
       switch (valueStr[0]) {
@@ -174,11 +174,13 @@ class _ProductFormState extends State<ProductForm> {
     return Colors.greenAccent; // Default farba
   }
 
-  Future<void> _recolorSensor(Map<String, dynamic> item) async {
-    double? newSensorValue = await _sensorRecolor.updateSensorValue(
+
+  Future<void> _recolorSensor(Map<String, dynamic> item, {bool isMode = false}) async {
+    int? newSensorValue = await _sensorRecolor.updateSensorValue(
         item,
         widget.workplace,
-        widget.product['product']
+        widget.product['product'],
+        isMode: isMode
     );
     if (newSensorValue != null) {
       setState(() {
@@ -190,6 +192,7 @@ class _ProductFormState extends State<ProductForm> {
     }
     _loadProductData();
   }
+
 
   Future<void> _renameSensorInWorkplace(Map<String, dynamic> item) async {
     String? newName = await _sensorRenamer.renameSensorInWorkplace(item, widget.workplace);
@@ -274,12 +277,14 @@ class _ProductFormState extends State<ProductForm> {
         ),
         title: Text("Sensors for ${widget.product['product']} in ${widget.workplace}"),
         actions: [
+
           if (widget.isLearningMode && _showFinishLearnButton)
             IconButton(
               icon: Icon(Icons.check),
               onPressed: _finishLearn,
               tooltip: 'Finish Learn',
             ),
+
         ],
       ),
       body: _items.isEmpty
@@ -309,7 +314,7 @@ class _ProductFormState extends State<ProductForm> {
                     ),
                   ),
                   SizedBox(width: 8),
-                  Icon(Icons.sensors, color: _getSensorColor(item['sensor_value'].toDouble())),
+                  Icon(Icons.sensors, color: _getSensorColor(item['sensor_value'].toInt())),
                 ],
               ),
               title: Text(
@@ -323,22 +328,27 @@ class _ProductFormState extends State<ProductForm> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ElevatedButton(
-                    child: Text('Rename'),
-                    onPressed: () => _renameSensor(item),
-                  ),
-                  SizedBox(width: 8),
+                  child: Text('Mode'),
+                  onPressed: () => _recolorSensor(item, isMode: true),
+                ),
+                  SizedBox(width: 28),
                   ElevatedButton(
                     child: Text('ReColor'),
                     onPressed: () => _recolorSensor(item),
                   ),
                   SizedBox(width: 8),
                   ElevatedButton(
-                    child: Text('Rename in workplace'),
+                    child: Text('Rename'),
+                    onPressed: () => _renameSensor(item),
+                  ),
+                  SizedBox(width: 8),
+                  ElevatedButton(
+                    child: Text('Rename All'),
                     onPressed: () => _renameSensorInWorkplace(item),
                   ),
                   SizedBox(width: 80),
                   ElevatedButton(
-                    child: Text('Call Position'),
+                    child: Text('Call'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isCallPositionActive ? Colors.green : null,
                       foregroundColor: isCallPositionActive ? Colors.white : null,
@@ -373,14 +383,20 @@ class _ProductFormState extends State<ProductForm> {
 
                     ReorderableDragStartListener(
                       index: index,
-                      child: Container(width: 65,color: Color(0xF6EFF8FF),
+                      child: Container(
+                        width: 65,
+                        decoration: BoxDecoration(
+                          color: Color(0xF6EFF8FF),
+                          borderRadius: BorderRadius.circular(10), // Tu nastavíš zaoblenie rohov
+                        ),
                         child: Column(
                           children: [
                             Icon(Icons.touch_app, color: Colors.grey, size: 30,),
                             Text("ReOrder")
                           ],
                         ),
-                      ),
+                      )
+                      ,
                     ),
 
                 ],

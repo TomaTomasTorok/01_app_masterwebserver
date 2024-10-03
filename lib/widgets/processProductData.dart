@@ -181,7 +181,7 @@ class ProductDataProcessor {
 
     try {
       // Funkcia na získanie najvyššej hodnoty pre danú pozíciu
-      int getHighestDigit(List<double> values, int position) {
+      int getHighestDigit(List<int> values, int position) {
         return values
             .where((v) => v >= 10 && v < 100) // Filtrujeme len dvojciferné čísla
             .map((v) => int.parse(v.toStringAsFixed(0)[position]))
@@ -189,22 +189,22 @@ class ProductDataProcessor {
       }
 
       // Získanie všetkých sensor_value
-      List<double> sensorValues = data
-          .map((item) => (item['sensor_value'] as double?) ?? 0.0)
+      List<int> sensorValues = data
+          .map((item) => (item['sensor_value'] as int?) ?? 10)
           .toList();
 
       // Zistenie, či máme aspoň jedno dvojciferné číslo
-      bool hasDoubleDigit = sensorValues.any((v) => v >= 10 && v < 100);
+      bool hasIntDigit = sensorValues.any((v) => v >= 10 && v < 100);
 
       // Príprava prvého elementu
       List<int> firstElement;
-      if (hasDoubleDigit) {
+      if (hasIntDigit) {
         int firstDigit = getHighestDigit(sensorValues, 0);
         int secondDigit = getHighestDigit(sensorValues, 1);
         firstElement = [firstDigit * 10 + secondDigit];
       } else {
         // Alternatíva, ak nemáme žiadne dvojciferné číslo
-        double maxValue = sensorValues.reduce((max, v) => v > max ? v : max);
+        int maxValue = sensorValues.reduce((max, v) => v > max ? v : max);
         firstElement = [maxValue.round()];
       }
 
