@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:web_socket_channel/io.dart';
 import '../../SQLite/database_helper.dart';
 import '../../Services/sensors_operation.dart';
 import '../workplace/workplace_learning.dart';
@@ -204,29 +208,64 @@ class _ProductFormState extends State<ProductForm> {
   Future<void> _finishLearn() async {
     try {
       widget.onFinishLearning?.call();
-      await showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          Future.delayed(Duration(seconds: 2), () {
-            Navigator.of(context).pop(true);
-          });
-          return AlertDialog(
-            title: Text('Learning Process Finished'),
-            content: Text('The learning process has been completed successfully.'),
-          );
-        },
-      );
+
       setState(() {
         _showFinishLearnButton = false;
       });
+
+      // Získanie všetkých Master IP adries
+      final masterIPs = await _databaseHelper.getMasterIPsForWorkplace(widget.workplace);
+
+      // Poslanie dát 0:0 na všetky Master IP adresy
+      for (var masterIP in masterIPs) {
+        await _sendFinishSignal(masterIP['master_ip']);
+      }
+
+      // Zobrazenie dialógového okna až po odoslaní signálov
+      if (mounted) {
+        await showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            Future.delayed(Duration(seconds: 2), () {
+              Navigator.of(context).pop(true);
+            });
+            return AlertDialog(
+              title: Text('Learning Process Finished'),
+              content: Text('The learning process has been completed successfully.'),
+            );
+          },
+        );
+      }
     } catch (e) {
       print('Error in finish learn process: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('An error occurred while finishing the learning process')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred while finishing the learning process')),
+        );
+      }
     }
   }
+  Future<void> _sendFinishSignal(String masterIP) async {
+    try {
+      final uri = Uri.parse('ws://$masterIP:81');
+      final socket = await WebSocket.connect(uri.toString());
+      final channel = IOWebSocketChannel(socket);
 
+      final data = {
+        "data": [
+          [0]
+      //    ,[0, 0, 0]
+        ]
+      };
+
+      channel.sink.add(json.encode(data));
+      await Future.delayed(Duration(milliseconds: 400));
+      await channel.sink.close();
+      print('Finish signal sent to $masterIP');
+    } catch (e) {
+      print('Error sending finish signal to $masterIP: $e');
+    }
+  }
   void _showAddOrEditItemDialog({Map<String, dynamic>? item}) {
     showDialog(
       context: context,
@@ -279,12 +318,25 @@ class _ProductFormState extends State<ProductForm> {
         actions: [
 
           if (widget.isLearningMode && _showFinishLearnButton)
-            IconButton(
-              icon: Icon(Icons.check),
-              onPressed: _finishLearn,
-              tooltip: 'Finish Learn',
-            ),
-
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: Icon(Icons.check),
+                  onPressed: _finishLearn,
+                  tooltip: 'Finish Learn',
+                ),
+                GestureDetector(
+                  onTap: _finishLearn, // Volanie rovnakej funkcie pri kliknutí na text
+                  child: Text(
+                    'Finish Learn',
+                    style: TextStyle(fontSize: 14),
+                  ),
+                ),
+              ],
+            )
+,
+SizedBox(width:100)
         ],
       ),
       body: _items.isEmpty

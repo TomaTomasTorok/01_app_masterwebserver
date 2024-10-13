@@ -53,7 +53,10 @@ class ProductDataProcessor {
         print('Process cancelled after processing cycles.');
         return;
       }
-
+     // Send finish signal to all Master IPs
+      for (var masterIP in channels.keys) {
+        await _sendFinishSignal(masterIP);
+      }
       print('All cycles completed successfully');
     } catch (e) {
       print('Error in processProductData: $e');
@@ -280,6 +283,28 @@ class ProductDataProcessor {
       throw Exception('Not all Master IPs confirmed');
     } else {
       print('All Master IPs confirmed successfully');
+
+    }
+  }
+
+  Future<void> _sendFinishSignal(String masterIP) async {
+    try {
+      final uri = Uri.parse('ws://$masterIP:81');
+      final socket = await WebSocket.connect(uri.toString());
+      final channel = IOWebSocketChannel(socket);
+
+      final data = {
+        "data": [
+          [0]
+        ]
+      };
+
+      channel.sink.add(json.encode(data));
+      await Future.delayed(Duration(milliseconds: 400));
+      await channel.sink.close();
+      print('Finish signal sent to $masterIP');
+    } catch (e) {
+      print('Error sending finish signal to $masterIP: $e');
     }
   }
   Future<void> _closeResources() async {

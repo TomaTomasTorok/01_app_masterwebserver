@@ -196,11 +196,11 @@ class _WorkplaceListState extends State<WorkplaceList> {
     return Scaffold(
       appBar: AppBar(
         // title: Text("Workplace List"),
-     title:   Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+     title:   Column(mainAxisSize: MainAxisSize.max,
+         crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Workplace List",
+              "Workplace List           ",
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
 
@@ -209,7 +209,7 @@ class _WorkplaceListState extends State<WorkplaceList> {
                 TextSpan(
                   children: [
                     TextSpan(
-                      text: "Task in Progress: ", // Normálny text
+                      text: "In Progress: ", // Normálny text
                       style: TextStyle(
                         fontSize: 14,
                         fontStyle: FontStyle.italic,
