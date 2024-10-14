@@ -118,8 +118,11 @@ class TaskService {
   Future<void> _processTask(Task task, String workplace) async {
     final productExists = await _databaseHelper.productExists(task.product, workplace);
     if (!productExists) {
+      task.status = 'Not_Found';
+      await _databaseHelper.updateTask(task);
       isBlocked = false;
       print('Product ${task.product} does not exist in product_data for workplace $workplace');
+
       return;
     }
 
